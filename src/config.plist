@@ -1,0 +1,143 @@
+{
+    name             = CppTDD;
+    displayableName  = "TDD g++ all-in-one grader";
+    version.major    = 2;
+    version.minor    = 0;
+    version.revision = 5;
+    version.date     = 20060904;
+    autoPublish      = true;
+    requires         = ( ANTForPlugins, PerlForPlugins );
+    provider         = "Virginia Tech Computer Science";
+    provider.url     = "http://web-cat.cs.vt.edu/updates";
+    license          = "GNU General Public License v.2";
+    license.url      = "http://www.gnu.org/copyleft/gpl.html";
+    copyright        = "(c) 2006 Virginia Tech Department of Computer Science";
+    info.url         = "http://web-cat.cs.vt.edu/WCWiki/CppTddPlugin";
+    history.url      = "http://web-cat.cs.vt.edu/WCWiki/CppTddPlugin/ChangeHistory";
+    executable       = execute.pl;
+    interpreter.prefix = "${PerlForPlugins.perl.exe}";
+    author     = "Stephen Edwards (edwards@cs.vt.edu)";
+    authorUid  = edwards;
+    languages  = ( { name = "C++"; version = "g++ 3.4.x"; } );
+    description = "This is the standard C++ one-step grading script.
+It includes ANT-based compilation, CxxTest processing of student-written
+tests, and support for instructor-written reference tests.";
+    timeoutMultiplier = 2;
+    timeoutInternalPadding = 400;
+    assignmentOptions = (
+        {
+            property    = testCases;
+            type        = fileOrDir;
+            fileTypes   = ( h );
+            name        = "CxxTest Reference Test Class(es)";
+            description =
+  "A C++ header file (or directory of header files) containing CxxTest tests
+  to run against student code to assess completeness of problem coverage.
+  If you select a single C++ header file, it must contain a CxxTest test class
+  definition.  If you select a directory, it should contain CxxTest test
+  classes, all of which will be used.  If you make no selection, an empty
+  set of instructor reference tests will be used instead.";
+        },
+        {
+            property    = localFiles;
+            type        = fileOrDir;
+            name        = "Data Files for Student";
+            description =
+  "A file (or a directory of files) to place in the student's current working
+  directory when running his/her tests and when running reference tests.  The
+  file you select (or the entire contents of the directory you select) will be
+  copied into the current working directory during grading so that
+  student-written and instructor-written test cases can read and/or write to
+  the file(s).  The default is to copy no files.";
+        },
+        {
+            property    = assignmentIncludes;
+            type        = fileOrDir;
+            fileTypes   = ();
+            name        = "#Include Directory";
+            description =
+  "A directory of files to place on the include path while compiling the
+  student's code (as well as instructor reference tests).  This directory
+  appears earlier on the include path than the reusable configuration setting.
+  The default is to use no path.";
+        },
+        {
+            property    = assignmentLib;
+            type        = file;
+            fileTypes   = ( a );
+            name        = "Static Linking Library";
+            description =
+  "A g++-compatible library file to link with the student's code.  This lib
+  file will be included in the link in addition to any specified in the
+  reusable options section.";
+        }
+    );
+    options = (
+        {
+            property    = debug;
+            type        = integer;
+            advanced    = true;
+            default     = 0;
+            name        = "Debug Level";
+            description =
+  "Set to a non-zero value for the script to produce debugging output (the
+  larger the number, the greater the detail, up to about 5).  Debugging output
+  on each grading script run will be e-mailed to the instructor.";
+        },
+        {
+            property    = hintsLimit;
+            type        = integer;
+            default     = 3;
+            name        = "Hints Limit";
+            description = "Maximum number of hints the
+                           student will receive from failed reference tests.";
+        },
+        {
+            property    = generalIncludes;
+            type        = fileOrDir;
+            fileTypes   = ();
+            name        = "#Include Directory";
+            description =
+  "A directory of files to place on the include path while compiling the
+  student's code (as well as instructor reference tests).  This directory
+  appears later on the include path than the assignment-specific configuration
+  setting.  The default is to use no path.";
+        },
+        {
+            property    = generalLib;
+            type        = file;
+            fileTypes   = ( a );
+            name        = "Static Linking Library";
+            description =
+  "A g++-compatible library file to link with the student's code.";
+        },
+        {
+            property    = allStudentTestsMustPass;
+            type        = boolean;
+            default     = false;
+            name        = "All Student Tests Must Pass";
+            description =
+  "If you are truly following test-driven development practices, then no code
+  is ever released until all of its unit tests pass.  If this option is set to
+  true, students will not receive a non-zero score or receive further
+  assessment feedback unless all student tests pass.  If this option is not
+  set, then students may continue to proceed even if some student-written
+  tests fail  The student's correctness/testing score is multiplied by the
+  proportion of their tests that pass.";
+        },
+        {
+            property    = coverageMetric;
+            advanced    = true;
+            type        = radioChoice;
+            name        = "Test Coverage Metric";
+            default     = 0;
+            description = "Choose the criterion used to measure how thoroughly
+                           a student's tests cover the corresponding code.";
+            choices     = ( { label = "No coverage used"; value = 0; },
+                            { label = "Methods executed"; value = 1; },
+                            { label = "Methods + conditions/decisions executed";
+                              value = 2; }
+                          );
+        }
+    );
+}

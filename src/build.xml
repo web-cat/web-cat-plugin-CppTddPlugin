@@ -1,0 +1,295 @@
+<project name="web-cat" default="run">
+
+    <!-- ============================================================
+         Property Definitions
+         ============================================================ -->
+
+    <property environment="env"/>
+    <property name="build"  value="${resultDir}/bin"/>
+    <property name="assignmentIncludes.abs"  value="${scriptHome}/empty"/>
+    <property name="assignmentLib.abs"  value="${scriptHome}/libempty.a"/>
+    <property name="generalIncludes.abs"  value="${scriptHome}/empty"/>
+    <property name="generalLib.abs"  value="${scriptHome}/libempty.a"/>
+    <property name="student.tests" value="${build}/runStudentTests.exe"/>
+    <property name="instructor.tests" value="${build}/runInstructorTests.exe"/>
+    <property name="exec.timeout" value="10000"/>
+    <property name="cxxtest.dir" location="${scriptHome}/cxxtest"/>
+    <property name="testCasePath" location="${scriptHome}/tests"/>
+    <property name="testCasePattern" value="**/*.h"/>
+    <property name="covfile" value="${env.COVFILE}"/>
+    <property name="bullseye.lib"
+              value="c:/cygwin/BullseyeCoverage/lib/libcov.a"/>
+
+    <taskdef resource="cpptasks.tasks"/>
+    <typedef resource="cpptasks.types"/>
+
+
+    <!-- ============================================================
+         Individual targets
+         ============================================================ -->
+
+    <target name="clean"
+	    description="removes compiled classes">
+	<echo message="basedir = ${basedir}"/>
+	<echo
+	    message="timeout = ${exec.timeout} (for each of two test runs)"/>
+	<echo message="env.COVFILE = ${env.COVFILE}"/>
+	<echo message="env.Path = ${env.Path}"/>
+	<delete includeEmptyDirs="true">
+	    <fileset dir="${resultDir}" casesensitive="false">
+		<include name="bin/"/>
+	    </fileset>
+	</delete>
+	<delete includeEmptyDirs="true">
+	    <fileset dir="${basedir}">
+		<include name="**/*.exe"/>
+		<include name="**/*.o"/>
+		<include name="**/*.obj"/>
+		<include name="Debug/"/>
+		<include name="Release/"/>
+	    </fileset>
+	</delete>
+	<mkdir dir="${build}"/>
+    </target>
+
+
+    <target name="generateStudentMain"
+	    description="generate runStudentTests.cpp from student's tests">
+	<apply executable="perl"
+	       failonerror="true"
+	       parallel="true"
+	       skipemptyfilesets="true"
+	       forwardslash="true"
+	       >
+	    <arg value="${cxxtest.dir}/cxxtestgen.pl"/>
+	    <arg value="--error-printer"/>
+	    <arg value="--force-main"/>
+	    <arg value="--track-heap"/>
+	    <arg value="--trap-signals"/>
+	    <!-- arg value="- -trace-stack"/ -->
+	    <arg value="--stack-trace-exe=${student.tests}"/>
+	    <arg value="--have-eh"/>
+	    <arg value="--abort-on-fail"/>
+	    <arg value="--no-static-init"/>
+    <!-- <arg value="- -ErrorPrinterFile=${resultDir}/student.raw"/> -->
+	    <arg value="-o"/>
+	    <arg value="${build}/runStudentTests.cpp"/>
+	    <!-- arg value="test-cases/*.h"/ -->
+	    <fileset dir="." casesensitive="no">
+	        <include name="**/*.h"/>
+	    </fileset>
+	</apply>
+    </target>
+
+
+    <target name="generateInstructorMain"
+	description="generate runInstructorTests.cpp from instructor's tests">
+	<apply executable="perl"
+	       failonerror="true"
+	       parallel="true"
+	       skipemptyfilesets="true"
+	       forwardslash="true"
+	       >
+	    <arg file="${cxxtest.dir}/cxxtestgen.pl"/>
+	    <arg value="--error-printer"/>
+	    <arg value="--force-main"/>
+	    <arg value="--track-heap"/>
+	    <arg value="--trap-signals"/>
+	    <!-- arg value="- -trace-stack"/ -->
+	    <arg value="--stack-trace-exe=${instructor.tests}"/>
+	    <arg value="--have-eh"/>
+	    <arg value="--abort-on-fail"/>
+	    <arg value="--no-static-init"/>
+    <!--<arg value="- -ErrorPrinterFile=${resultDir}/instructor.raw"/>-->
+	    <arg value="-o"/>
+	    <arg file="${build}/runInstructorTests.cpp"/>
+	    <fileset dir="${testCasePath}" casesensitive="no">
+	        <include name="${testCasePattern}"/>
+	    </fileset>
+	</apply>
+    </target>
+
+
+    <target name="enable.coverage"
+	    description="enable coverage instrumentation, if desired"
+	    unless="disableCodeCoverage">
+	<exec executable="cov01">
+            <arg value="-q"/>
+	    <arg value="-1"/>
+	</exec>
+    </target>
+
+
+    <target name="disable.coverage"
+	    description="enable coverage instrumentation, if desired"
+	    if="disableCodeCoverage">
+	<exec executable="cov01">
+            <arg value="-q"/>
+	    <arg value="-0"/>
+	</exec>
+    </target>
+
+
+    <target name="compile"
+	    depends="generateStudentMain,enable.coverage,disable.coverage"
+	    description="compile student's code">
+	<cc    name="g++"
+	       objdir="${build}"
+	       outfile="${student.tests}"
+	       outtype="executable"
+	       rebuild="true"
+	       relentless="true"
+	       >
+	    <compilerarg value="-O0"/>
+	    <compilerarg value="-g3"/>
+	    <compilerarg value="-Wall"/>
+	    <compilerarg value="-fnon-call-exceptions"/>
+	    <compilerarg value="-finstrument-functions"/>
+	    <includepath location="${cxxtest.dir}"/>
+	    <includepath location="${basedir}"/>
+	    <includepath location="${assignmentIncludes.abs}"/>
+	    <includepath location="${generalIncludes.abs}"/>
+	    <fileset dir="${basedir}" casesensitive="false">
+		<include name="**/*.cpp"/>
+		<exclude name="**/main.cpp"/>
+		<exclude name="**/runAllTests.cpp"/>
+		<exclude name="**/run*Tests.cpp"/>
+	    </fileset>
+	    <fileset dir="${scriptHome}/obj">
+		<include name="**/*.o"/>
+	    </fileset>
+	    <fileset dir="${build}">
+		<include name="runStudentTests.cpp"/>
+	    </fileset>
+	    <linkerarg location="end" value ="${assignmentLib.abs}"/>
+	    <linkerarg location="end" value ="${generalLib.abs}"/>
+	    <linkerarg location="end" value ="${bullseye.lib}"/>
+	    <libset libs="stdc++,bfd,iberty,intl"/>
+	</cc>
+    </target>
+
+
+    <target name="run.student.tests"
+	    depends="compile"
+	    description="run student's test cases">
+	<exec executable="${student.tests}"
+	      timeout="${exec.timeout}"
+	      >
+	</exec>
+    </target>
+
+
+    <target name="test"
+            depends="run.student.tests"
+	    description="runs students tests, including coverage info"
+	    unless="disableCodeCoverage">
+	<exec executable="covsrc" output="${resultDir}/covfile.out">
+	    <arg value="-q"/>
+	    <arg value="-c"/>
+	    <arg value="-k"/>
+	    <arg value="!${resultDir}"/>
+	    <arg value="!${cxxtest.dir}"/>
+	</exec>
+	<exec executable="covbr" output="${resultDir}/covfunc.out">
+	    <arg value="-q"/>
+	    <arg value="--csv"/>
+	    <arg value="!${resultDir}"/>
+	    <arg value="!${cxxtest.dir}"/>
+	</exec>
+	<exec executable="covbr" output="${resultDir}/covsrc.out">
+            <arg value="-q"/>
+	    <arg value="-c0"/>
+	    <arg value="-w500"/>
+	    <arg value="!${resultDir}"/>
+	    <arg value="!${cxxtest.dir}"/>
+	</exec>
+	<exec executable="cov01">
+	    <arg value="-q"/>
+	    <arg value="-0"/>
+	</exec>
+    </target>
+
+
+    <target name="compileInstructorTests"
+	    depends="generateInstructorMain"
+	    description="compile student's code with instructor's tests">
+	<mkdir dir="__"/>
+	<delete file="${build}/runStudentTests.o"/>
+	<cc    name="g++"
+	       objdir="${build}"
+	       outfile="${instructor.tests}"
+	       outtype="executable"
+	       >
+	    <compilerarg value="-O0"/>
+	    <compilerarg value="-g3"/>
+	    <compilerarg value="-fnon-call-exceptions"/>
+	    <compilerarg value="-finstrument-functions"/>
+	    <compilerarg value='"-DHINT_PREFIX=\"hint: \""'/>
+	    <compilerarg value='"-DMW_PREFIX=\"/=MEMWATCH=/: \""'/>
+	    <includepath location="${cxxtest.dir}"/>
+	    <includepath location="${basedir}"/>
+	    <includepath location="${assignmentIncludes.abs}"/>
+	    <includepath location="${generalIncludes.abs}"/>
+	    <includepath location="__"/>
+	    <fileset dir="${basedir}" casesensitive="false">
+		<include name="**/*.cpp"/>
+		<exclude name="**/main.cpp"/>
+		<exclude name="**/runAllTests.cpp"/>
+		<exclude name="**/run*Tests.cpp"/>
+	    </fileset>
+	    <fileset dir="${build}">
+		<include name="runInstructorTests.cpp"/>
+	    </fileset>
+	    <fileset dir="${scriptHome}/obj">
+		<include name="**/*.o"/>
+	    </fileset>
+	    <linkerarg location="end" value ="${assignmentLib.abs}"/>
+	    <linkerarg location="end" value ="${generalLib.abs}"/>
+	    <libset libs="stdc++,bfd,iberty,intl"/>
+	</cc>
+    </target>
+
+
+    <target name="instructorTest"
+	    depends="compileInstructorTests"
+	    description="run instructor's test cases">
+	<exec executable="${instructor.tests}"
+	      timeout="${exec.timeout}"/>
+    </target>
+
+
+    <target name="final-clean"
+            unless="doNotDelete"
+	    description="removes unnecessary derived files">
+	<delete includeEmptyDirs="true">
+	    <fileset dir="${resultDir}" casesensitive="false">
+		<include name="bin/"/>
+	    </fileset>
+	</delete>
+	<delete includeEmptyDirs="true">
+	    <fileset dir="${basedir}">
+		<include name="__/"/>
+	    </fileset>
+	</delete>
+    </target>
+
+
+    <!-- ============================================================
+         The main target
+         ============================================================ -->
+
+    <target name="run"
+            depends="clean, test, instructorTest, final-clean"/>
+
+
+    <!-- ============================================================
+         Help text for this build file
+         ============================================================ -->
+
+    <target name="help">
+	<echo>
+	    This help text needs to be written.
+	</echo>
+    </target>
+
+</project>
