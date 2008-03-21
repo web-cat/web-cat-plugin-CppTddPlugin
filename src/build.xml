@@ -66,8 +66,8 @@
 	    <arg value="--force-main"/>
 	    <arg value="--track-heap"/>
 	    <arg value="--trap-signals"/>
-	    <!-- arg value="- -trace-stack"/ -->
-	    <arg value="--stack-trace-exe=${student.tests}"/>
+	    <arg value="--trace-stack"/>
+	    <!--arg value="- -stack-trace-exe=${student.tests}"/-->
 	    <arg value="--have-eh"/>
 	    <arg value="--abort-on-fail"/>
 	    <arg value="--no-static-init"/>
@@ -95,8 +95,8 @@
 	    <arg value="--force-main"/>
 	    <arg value="--track-heap"/>
 	    <arg value="--trap-signals"/>
-	    <!-- arg value="- -trace-stack"/ -->
-	    <arg value="--stack-trace-exe=${instructor.tests}"/>
+	    <arg value="--trace-stack"/>
+	    <!--arg value="- -stack-trace-exe=${instructor.tests}"/-->
 	    <arg value="--have-eh"/>
 	    <arg value="--abort-on-fail"/>
 	    <arg value="--no-static-init"/>
@@ -173,8 +173,8 @@
 	    depends="compile"
 	    description="run student's test cases">
 	<exec executable="${student.tests}"
-	      timeout="${exec.timeout}"
-	      >
+	      timeout="${exec.timeout}">
+	    <env key="CXXTEST_EXE_PATH" value="${student.tests}"/>
 	</exec>
     </target>
 
@@ -254,7 +254,9 @@
 	    depends="compileInstructorTests"
 	    description="run instructor's test cases">
 	<exec executable="${instructor.tests}"
-	      timeout="${exec.timeout}"/>
+	      timeout="${exec.timeout}">
+	    <env key="CXXTEST_EXE_PATH" value="${instructor.tests}"/>
+	</exec>
     </target>
 
 
