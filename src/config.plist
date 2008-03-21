@@ -1,10 +1,9 @@
 {
-    name             = CppTDD;
-    displayableName  = "TDD g++ all-in-one grader";
+    name             = CppTddPlugin;
     version.major    = 2;
-    version.minor    = 0;
-    version.revision = 5;
-    version.date     = 20060904;
+    version.minor    = 2;
+    version.revision = 1;
+    version.date     = 20070204;
     autoPublish      = true;
     requires         = ( ANTForPlugins, PerlForPlugins );
     provider         = "Virginia Tech Computer Science";
@@ -72,26 +71,13 @@ tests, and support for instructor-written reference tests.";
   reusable options section.";
         }
     );
+    optionCategories = (
+        "C++ Settings",
+        "Scoring Settings",
+        "Feedback Settings",
+        "Script Developer"
+    );
     options = (
-        {
-            property    = debug;
-            type        = integer;
-            advanced    = true;
-            default     = 0;
-            name        = "Debug Level";
-            description =
-  "Set to a non-zero value for the script to produce debugging output (the
-  larger the number, the greater the detail, up to about 5).  Debugging output
-  on each grading script run will be e-mailed to the instructor.";
-        },
-        {
-            property    = hintsLimit;
-            type        = integer;
-            default     = 3;
-            name        = "Hints Limit";
-            description = "Maximum number of hints the
-                           student will receive from failed reference tests.";
-        },
         {
             property    = generalIncludes;
             type        = fileOrDir;
@@ -108,6 +94,7 @@ tests, and support for instructor-written reference tests.";
             type        = file;
             fileTypes   = ( a );
             name        = "Static Linking Library";
+            category    = "C++ Settings";
             description =
   "A g++-compatible library file to link with the student's code.";
         },
@@ -116,6 +103,7 @@ tests, and support for instructor-written reference tests.";
             type        = boolean;
             default     = false;
             name        = "All Student Tests Must Pass";
+            category    = "Scoring Settings";
             description =
   "If you are truly following test-driven development practices, then no code
   is ever released until all of its unit tests pass.  If this option is set to
@@ -131,6 +119,7 @@ tests, and support for instructor-written reference tests.";
             type        = radioChoice;
             name        = "Test Coverage Metric";
             default     = 0;
+            category    = "Scoring Settings";
             description = "Choose the criterion used to measure how thoroughly
                            a student's tests cover the corresponding code.";
             choices     = ( { label = "No coverage used"; value = 0; },
@@ -138,6 +127,40 @@ tests, and support for instructor-written reference tests.";
                             { label = "Methods + conditions/decisions executed";
                               value = 2; }
                           );
+        },
+        {
+            property    = hintsLimit;
+            type        = integer;
+            default     = 3;
+            name        = "Hints Limit";
+            category    = "Feedback Settings";
+            description = "Maximum number of hints the
+                           student will receive from failed reference tests.";
+        },
+        {
+            property    = debug;
+            type        = integer;
+            advanced    = true;
+            default     = 0;
+            name        = "Debug Level";
+            category    = "Script Developer";
+            description =
+  "Set to a non-zero value for the script to produce debugging output (the
+  larger the number, the greater the detail, up to about 5).  Debugging output
+  on each grading script run will be e-mailed to the instructor.";
+        },
+        {
+            property    = doNotDelete;
+            type        = antBoolean;
+            advanced    = true;
+            name        = "Preserve Derived Files";
+            category    = "Script Developer";
+            description =
+  "Set to true to prevent the plug-in from deleting the derived files it
+  creates during the build/test process for each submission.  Normally, these
+  files are deleted when a given submission has been completely processed.
+  This setting is provided for debugging purposes, when one wishes to
+  inspect the intermediate test driver source code or other derived files.";
         }
     );
 }

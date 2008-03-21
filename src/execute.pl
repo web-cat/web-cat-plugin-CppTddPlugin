@@ -286,9 +286,12 @@ if ( $debug > 2 )
     print "path = ", $ENV{PATH}, "\n\n";
     if ( defined $ENV{INCLUDE} )
     {
-	print "include = ", $ENV{INCLUDE}, "\n\n";
+	   print "include = ", $ENV{INCLUDE}, "\n\n";
     }
-    print "lib = ", $ENV{LIB}, "\n\n";
+    if ( defined $ENV{LIB} )
+    {
+        print "lib = ", $ENV{LIB}, "\n\n";
+    }
 }
 
 # localFiles
@@ -626,7 +629,7 @@ looping</b>--when a while loop or for loop fails to stop repeating.</p>
 	$testMsgs .=
 	"\n<font color=\"#ee00bb\">No tests included in submission.</font>";
     }
-    
+
     $studentCasesPercent = $testsRun > 0 ? int(
 	( ( $testsRun - $testsFailed ) / $testsRun ) * 100.0 + 0.5 )
 	: 0;
@@ -635,7 +638,7 @@ looping</b>--when a while loop or for loop fails to stop repeating.</p>
 	# Don't show 100% if some cases failed
 	$studentCasesPercent--;
     }
-    
+
     if ( -f "memwatch.log" )
     {
 	open( MEMWATCHLOG, "memwatch.log" ) ||
@@ -768,7 +771,7 @@ if ( $can_proceed )
 	{
 	    print "stats: $_" if ( $debug > 1 );
 	    $instructorTestsRun += $1;
-	    if ( m/^running\s*([0-9]+)\s*tests(\.)*ok!$/io )
+ 	    if ( m/^running\s*([0-9]+)\s*tests(.*)\.ok!$/io )
 	    {
 		$resultsSeen++;
 	    }
@@ -1148,7 +1151,7 @@ if ( $testsRun && $measureCodeCoverage )
 	close( COVERAGE );
 	print "topLevelGradedElements = $topLevelGradedElements\n"
 	    if ( $debug > 2 );
-    
+
 	if ( $coverageMetric == 2 )
 	{
 	    $cfg->setProperty( "statElementsLabel",
@@ -1164,7 +1167,7 @@ if ( $testsRun && $measureCodeCoverage )
 	    $ptsPerUncovered = -1.0 /
 		$topLevelGradedElements * $runtimeScoreWithoutCoverage;
 	}
-    
+
 	if ( open ( COVERAGE, $coverageLog ) )
 	{
 	    while ( <COVERAGE> )
@@ -1234,7 +1237,7 @@ if ( $testsRun && $measureCodeCoverage )
 				   $ptsPerUncovered );
 	    }
 	    close( COVERAGE );
-    
+
 	    $cfg->setProperty( "numCodeMarkups", $numCodeMarkups );
 
 	    if ( $gradedElements > 0 )
@@ -1471,7 +1474,7 @@ EOF
 	    $cfg->getProperty( "statElementsLabel", "Methods Executed" );
 	$descr =~ tr/A-Z/a-z/;
 	$descr =~ s/\s*executed\s*$//;
-	$feedbackGenerator->print( 
+	$feedbackGenerator->print(
 	    "</b> (percentage of $descr exercised by your tests)</p>\n" );
 	$feedbackGenerator->print( <<EOF );
 <p>You can improve your testing by looking for any
@@ -1505,7 +1508,7 @@ if ( -f $instrLog && stat( $instrLog )->size > 0 )
 if ( $can_proceed )
 {
     my $scoreToTenths = int( $runtimeScore * 10 + 0.5 ) / 10;
-    if ( $instructorTestsRun == 0 
+    if ( $instructorTestsRun == 0
 	 || $instructorTestsFailed == $instructorTestsRun )
     {
 	$instructorCasesPercent = "<font color=\"#ee00bb\">unknown</font>";
