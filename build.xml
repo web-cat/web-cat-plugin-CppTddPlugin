@@ -27,8 +27,8 @@
       <fileset dir="${cxxtest.framework.dir}">
           <include name="cxxtest/"/>
       </fileset>
-      <zipfileset dir="${cxxtest.bfd.dir}/symreader-src" prefix="bfd/"/>
-      <zipfileset dir="${cxxtest.macosx.dir}/lib" prefix="mac/"/>
+      <zipfileset dir="${cxxtest.bfd.dir}/symreader-src" prefix="cxxtest/bfd/"/>
+      <zipfileset dir="${cxxtest.macosx.dir}/lib" prefix="cxxtest/mac/"/>
     </jar>
   </target>
 
