@@ -6,10 +6,6 @@
 
     <property environment="env"/>
     <property name="build"  value="${resultDir}/bin"/>
-    <property name="assignmentIncludes.abs"  value="${scriptHome}/empty"/>
-    <property name="assignmentLib.abs"  value="${scriptHome}/libempty.a"/>
-    <property name="generalIncludes.abs"  value="${scriptHome}/empty"/>
-    <property name="generalLib.abs"  value="${scriptHome}/libempty.a"/>
     <property name="student.tests" value="${build}/runStudentTests.exe"/>
     <property name="instructor.tests" value="${build}/runInstructorTests.exe"/>
     <property name="exec.timeout" value="10000"/>
@@ -32,7 +28,6 @@
         <os family="mac"/>
     </condition>
     <available property="has.assert.o" file="${scriptHome}/obj/assert.o"/>
-    <available property="has.libempty.a" file="${scriptHome}/libempty.a"/>
 
     <!-- Check for Bullseye presence. -->
     <target name="bullseye.properties" unless="bullseye.lib">
@@ -59,7 +54,7 @@
 
     <target name="nonmac.properties" unless="is.mac">
         <property name="cxxtest.symreader.dir"
-          value="${cxxtest.dir}/bfd"/>
+          value="${cxxtest.dir}${file.separator}bfd"/>
         <property name="cxxtest.extra.libs"
           value=",bfd,iberty,intl"/>
     </target>
@@ -73,19 +68,9 @@
       </cc>
     </target>
 
-    <target name="libempty.a" depends="assert.o" unless="has.libempty.a">
-      <exec executable="ar">
-        <arg value="-r"/>
-        <arg value="-s"/>
-        <arg value="${scriptHome}/libempty.a"/>
-        <arg value="${scriptHome}/obj/__empty__.o"/>
-      </exec>
-    </target>
-
     <!-- Make sure all initial setup is performed correctly. -->
     <target name="init"
-      depends="bullseye.properties,mac.properties,nonmac.properties,
-               assert.o,libempty.a"
+      depends="bullseye.properties,mac.properties,nonmac.properties,assert.o"
       description="Initialize necessary properties"/>
 
 
@@ -101,6 +86,7 @@
         message="timeout = ${exec.timeout} (for each of two test runs)"/>
     <echo message="env.COVFILE = ${env.COVFILE}"/>
     <echo message="env.Path = ${env.Path}"/>
+    <echo message="cxxtest.symreader.dir = ${cxxtest.symreader.dir}"/>
     <delete includeEmptyDirs="true">
         <fileset dir="${resultDir}" casesensitive="false">
         <include name="bin/"/>
@@ -214,10 +200,13 @@
         <compilerarg value="-DCXXTEST_INCLUDE_SYMREADER_DIRECTLY"
           unless="is.mac"/>
         <includepath location="${cxxtest.dir}"/>
-        <includepath location="${cxxtest.symreader.dir}"/>
+        <includepath location="${cxxtest.symreader.dir}"
+          unless="is.mac"/>
         <includepath location="${basedir}"/>
-        <includepath location="${assignmentIncludes.abs}"/>
-        <includepath location="${generalIncludes.abs}"/>
+        <includepath location="${assignmentIncludes.abs}"
+                     if="assignmentIncludes.abs"/>
+        <includepath location="${generalIncludes.abs}"
+                     if="generalIncludes.abs"/>
         <fileset dir="${basedir}" casesensitive="false">
         <include name="**/*.cpp"/>
         <exclude name="**/main.cpp"/>
@@ -230,8 +219,10 @@
         <fileset dir="${build}">
         <include name="runStudentTests.cpp"/>
         </fileset>
-        <linkerarg location="end" value ="${assignmentLib.abs}"/>
-        <linkerarg location="end" value ="${generalLib.abs}"/>
+        <linkerarg location="end" value ="${assignmentLib.abs}"
+                   if="assignmentLib.abs"/>
+        <linkerarg location="end" value ="${generalLib.abs}"
+                   if="generalLib.abs"/>
         <linkerarg location="end" value ="${bullseye.lib}"/>
         <linkerarg location="start" value ="-F/System/Library/PrivateFrameworks"
           if="is.mac"/>
@@ -307,10 +298,13 @@
         <compilerarg value='"-DHINT_PREFIX=\"hint: \""'/>
         <compilerarg value='"-DMW_PREFIX=\"/=MEMWATCH=/: \""'/>
         <includepath location="${cxxtest.dir}"/>
-        <includepath location="${cxxtest.symreader.dir}"/>
+        <includepath location="${cxxtest.symreader.dir}"
+          unless="is.mac"/>
         <includepath location="${basedir}"/>
-        <includepath location="${assignmentIncludes.abs}"/>
-        <includepath location="${generalIncludes.abs}"/>
+        <includepath location="${assignmentIncludes.abs}"
+                     if="assignmentIncludes.abs"/>
+        <includepath location="${generalIncludes.abs}"
+                     if="generalIncludes.abs"/>
         <includepath location="__"/>
         <fileset dir="${basedir}" casesensitive="false">
         <include name="**/*.cpp"/>
@@ -324,8 +318,10 @@
         <fileset dir="${scriptHome}/obj">
         <include name="**/*.o"/>
         </fileset>
-        <linkerarg location="end" value ="${assignmentLib.abs}"/>
-        <linkerarg location="end" value ="${generalLib.abs}"/>
+        <linkerarg location="end" value ="${assignmentLib.abs}"
+                   if="assignmentLib.abs"/>
+        <linkerarg location="end" value ="${generalLib.abs}"
+                   if="generalLib.abs"/>
         <libset libs="stdc++${cxxtest.extra.libs}"/>
     </cc>
     </target>

@@ -13,11 +13,13 @@ use warnings;
 use Carp qw( carp croak );
 use File::Basename;
 use File::Copy;
+use File::Spec;
 use File::stat;
-use Win32::Job;
+use Proc::Background;
 use Config::Properties::Simple;
 use Web_CAT::Beautifier;
 use Web_CAT::FeedbackGenerator;
+use Web_CAT::Utilities;
 use Text::Tabs;
 use XML::Smart;
 #use Data::Dump qw( dump );
@@ -30,14 +32,14 @@ my $ANT = "ant";     # "G:\\ant\\bin\\ant.bat";
 #=============================================================================
 # Bring command line args into local variables for easy reference
 #=============================================================================
-my $propfile    = $ARGV[0];	# property file name
+my $propfile    = $ARGV[0];     # property file name
 my $cfg         = Config::Properties::Simple->new( file => $propfile );
 
 my $pid         = $cfg->getProperty( 'pid' );
-my $working_dir	= $cfg->getProperty( 'workingDir' );
-my $script_home	= $cfg->getProperty( 'scriptHome' );
-my $log_dir	= $cfg->getProperty( 'resultDir' );
-my $timeout	= $cfg->getProperty( 'timeout', 45 );
+my $working_dir = $cfg->getProperty( 'workingDir' );
+my $script_home = $cfg->getProperty( 'scriptHome' );
+my $log_dir     = $cfg->getProperty( 'resultDir' );
+my $timeout     = $cfg->getProperty( 'timeout', 45 );
 my $reportCount = $cfg->getProperty( 'numReports', 0 );
 
 my $maxCorrectnessScore   = $cfg->getProperty( 'max.score.correctness' );
@@ -122,12 +124,12 @@ sub findScriptPath
     my $target = "$scriptData/$subpath";
 #    foreach my $sddir ( @scriptDataDirs )
 #    {
-#	my $target = $sddir ."/$subpath";
-#	#print "checking $target\n";
-	if ( -e $target )
-	{
-	    return $target;
-	}
+#       my $target = $sddir ."/$subpath";
+#       #print "checking $target\n";
+        if ( -e $target )
+        {
+            return $target;
+        }
 #    }
     die "cannot file user script data file $subpath in $scriptData";
 }
@@ -138,18 +140,18 @@ my $testCasePath = "${script_home}/tests";
     my $testCaseFileOrDir = $cfg->getProperty( 'testCases' );
     if ( defined $testCaseFileOrDir && $testCaseFileOrDir ne "" )
     {
-	my $target = findScriptPath( $testCaseFileOrDir );
-	if ( -d $target )
-	{
-	    $cfg->setProperty( 'testCasePath', $target );
-	}
-	else
-	{
-	    $cfg->setProperty( 'testCasePath', dirname( $target ) );
-	    $cfg->setProperty( 'testCasePattern', basename( $target ) );
-	    $target = dirname( $target );
-	}
-	$testCasePath = $target;
+        my $target = findScriptPath( $testCaseFileOrDir );
+        if ( -d $target )
+        {
+            $cfg->setProperty( 'testCasePath', $target );
+        }
+        else
+        {
+            $cfg->setProperty( 'testCasePath', dirname( $target ) );
+            $cfg->setProperty( 'testCasePattern', basename( $target ) );
+            $target = dirname( $target );
+        }
+        $testCasePath = $target;
     }
 }
 $testCasePath =~ s,/,\\,g;
@@ -160,8 +162,8 @@ my $assignmentIncludes;
     my $p = $cfg->getProperty( 'assignmentIncludes' );
     if ( defined $p && $p ne "" )
     {
-	$assignmentIncludes = findScriptPath( $p );
-	$cfg->setProperty( 'assignmentIncludes.abs', $assignmentIncludes );
+        $assignmentIncludes = findScriptPath( $p );
+        $cfg->setProperty( 'assignmentIncludes.abs', $assignmentIncludes );
     }
 }
 
@@ -171,8 +173,8 @@ my $assignmentLib;
     my $p = $cfg->getProperty( 'assignmentLib' );
     if ( defined $p && $p ne "" )
     {
-	$assignmentLib = findScriptPath( $p );
-	$cfg->setProperty( 'assignmentLib.abs', $assignmentLib );
+        $assignmentLib = findScriptPath( $p );
+        $cfg->setProperty( 'assignmentLib.abs', $assignmentLib );
     }
 }
 
@@ -182,8 +184,8 @@ my $generalIncludes;
     my $p = $cfg->getProperty( 'generalIncludes' );
     if ( defined $p && $p ne "" )
     {
-	$generalIncludes = findScriptPath( $p );
-	$cfg->setProperty( 'generalIncludes.abs', $generalIncludes );
+        $generalIncludes = findScriptPath( $p );
+        $cfg->setProperty( 'generalIncludes.abs', $generalIncludes );
     }
 }
 
@@ -193,8 +195,8 @@ my $generalLib;
     my $p = $cfg->getProperty( 'generalLib' );
     if ( defined $p && $p ne "" )
     {
-	$generalLib = findScriptPath( $p );
-	$cfg->setProperty( 'generalLib.abs', $generalLib );
+        $generalLib = findScriptPath( $p );
+        $cfg->setProperty( 'generalLib.abs', $generalLib );
     }
 }
 
@@ -234,7 +236,7 @@ sub prep_for_output
     # print "\t2: $result";
     $result =~ s,([a-z]:)?\Q$script_home\E/tests(/[^\s]*(:[0-9]+)?:)?,,gi;
     $result =~
-	s,([a-z]:)?\Q$DOSStyle_script_home\E\\tests(\\[^\s]*(:[0-9]+)?:)?,,gi;
+        s,([a-z]:)?\Q$DOSStyle_script_home\E\\tests(\\[^\s]*(:[0-9]+)?:)?,,gi;
 
     # print "\t3: $result";
     $result =~ s,([a-z]:)?\Q$NTprojdir\E/__/([^\s]*(:[0-9]+)?:)?,,gi;
@@ -259,7 +261,7 @@ sub prep_for_output
     # print "\t5: $result";
     if ( defined( $testCasePattern ) )
     {
-	$result =~ s/([^\s]*(\/|\\))?\Q$testCasePattern\E/<<reference tests>>/gi;
+        $result =~ s/([^\s]*(\/|\\))?\Q$testCasePattern\E/<<reference tests>>/gi;
     }
     $result =~ s/([^\s]*(\/|\\))?(_)*instructor(_)*test(s)?\.(h|cpp)/<<reference tests>>/gio;
     $result =~ s/([^\s]*(\/|\\))?runinstructortests\.cpp/<<reference tests>>/gio;
@@ -286,7 +288,7 @@ if ( $debug > 2 )
     print "path = ", $ENV{PATH}, "\n\n";
     if ( defined $ENV{INCLUDE} )
     {
-	   print "include = ", $ENV{INCLUDE}, "\n\n";
+           print "include = ", $ENV{INCLUDE}, "\n\n";
     }
     if ( defined $ENV{LIB} )
     {
@@ -303,21 +305,21 @@ sub copyHere
     $newfile =~ s,^\Q$base/\E,,;
     if ( -d $file )
     {
-	if ( $file ne $base )
-	{
-	    print "mkdir( $newfile );\n" if $debug;
-	    mkdir( $newfile );
-	}
-	foreach my $f ( <$file/*> )
-	{
-	    copyHere( $f, $base );
-	}
+        if ( $file ne $base )
+        {
+            print "mkdir( $newfile );\n" if $debug;
+            mkdir( $newfile );
+        }
+        foreach my $f ( <$file/*> )
+        {
+            copyHere( $f, $base );
+        }
     }
     else
     {
-	print "copy( $file, $newfile );\n" if $debug;
-	copy( $file, $newfile );
-	push( @beautifierIgnoreFiles, $newfile );
+        print "copy( $file, $newfile );\n" if $debug;
+        copy( $file, $newfile );
+        push( @beautifierIgnoreFiles, $newfile );
     }
 }
 
@@ -325,20 +327,20 @@ sub copyHere
     my $localFiles = $cfg->getProperty( 'localFiles' );
     if ( defined $localFiles && $localFiles ne "" )
     {
-	my $lf = findScriptPath( $localFiles );
-	print "localFiles = $lf\n" if $debug;
-	if ( -d $lf )
-	{
-	    print "localFiles is a directory\n" if $debug;
-	    copyHere( $lf, $lf );
-	}
-	else
-	{
-	    print "localFiles is a single file\n" if $debug;
-	    my $base = $lf;
-	    $base =~ s,/[^/]*$,,;
-	    copyHere( $lf, $base );
-	}
+        my $lf = findScriptPath( $localFiles );
+        print "localFiles = $lf\n" if $debug;
+        if ( -d $lf )
+        {
+            print "localFiles is a directory\n" if $debug;
+            copyHere( $lf, $lf );
+        }
+        else
+        {
+            print "localFiles is a single file\n" if $debug;
+            my $base = $lf;
+            $base =~ s,/[^/]*$,,;
+            copyHere( $lf, $base );
+        }
     }
 }
 if ( ! -d "$script_home/obj" )
@@ -357,29 +359,25 @@ my $testsFailed  = 0;
 
 if ( $callAnt )
 {
-    my $NTlogdir = $DOSStyle_log_dir;
-    $NTlogdir =~ s,\\\\,\\,g;
     if ( $debug > 2 ) { $ANT .= " -v"; }
-    my $cmdline = "cmd /c $ANT -f \"$script_home/build.xml\" -l \"$antLog\" "
-	. "-propertyfile \"$propfile\" \"-Dbasedir=$working_dir\" "
-        . " 2>&1 > $NTlogdir\\ant.header";
+    my $cmdline = $Web_CAT::Utilities::SHELL
+        . "$ANT -f \"$script_home/build.xml\" -l \"$antLog\" "
+        . "-propertyfile \"$propfile\" \"-Dbasedir=$working_dir\" "
+        . "2>&1 > " . File::Spec->devnull;
 
-    if ( $debug )
-    {
-	print $cmdline, "\n";
-    }
+    print $cmdline, "\n" if ( $debug );
     if ( $useSpawn )
     {
-	my $job = Win32::Job->new;
-	$job->spawn( "cmd.exe", $cmdline );
-	if ( ! $job->run( $timeout - $postProcessingTime ) )
-	{
-	    $can_proceed = 0;
-	    my $feedbackGenerator =
-		new Web_CAT::FeedbackGenerator( $timeoutLog );
-	    $feedbackGenerator->startFeedbackSection(
-		"Errors During Testing" );
-	    $feedbackGenerator->print( <<EOF );
+            my ( $exitcode, $timeout_status ) = Proc::Background::timeout_system(
+            $timeout - $postProcessingTime, $cmdline );
+    if ( $timeout_status )
+        {
+            $can_proceed = 0;
+            my $feedbackGenerator =
+                new Web_CAT::FeedbackGenerator( $timeoutLog );
+            $feedbackGenerator->startFeedbackSection(
+                "Errors During Testing" );
+            $feedbackGenerator->print( <<EOF );
 <p><font color="#ee00bb">Testing your solution exceeded the allowable time
 limit for this assignment.</font></p>
 <p>Most frequently, this is the result of <b>infinite recursion</b>--when
@@ -387,19 +385,19 @@ a recursive method fails to stop calling itself--or <b>infinite
 looping</b>--when a while loop or for loop fails to stop repeating.</p>
 <p>As a result, no time remained for further analysis of your code.</p>
 EOF
-	    $feedbackGenerator->endFeedbackSection;
-	    $feedbackGenerator->close;
-	    # Add to list of reports
-	    # -----------
-	    $reportCount++;
-	    $cfg->setProperty( "report${reportCount}.file",
-			       $timeoutLogRelative );
-	    $cfg->setProperty( "report${reportCount}.mimeType", "text/html" );
-	}
+            $feedbackGenerator->endFeedbackSection;
+            $feedbackGenerator->close;
+            # Add to list of reports
+            # -----------
+            $reportCount++;
+            $cfg->setProperty( "report${reportCount}.file",
+                               $timeoutLogRelative );
+            $cfg->setProperty( "report${reportCount}.mimeType", "text/html" );
+        }
     }
     else
     {
-	system( $cmdline );
+        system( $cmdline );
     }
 }
 
@@ -418,21 +416,21 @@ sub scanTo {
     # print "scanning for $pattern\n";
     if ( defined( $_ ) && !( m/$pattern/ ) )
     {
-	while ( <ANTLOG> )
-	{
-	    last if m/$pattern/;
-	    # print "skipping: ";
-	    # print;
-	}
+        while ( <ANTLOG> )
+        {
+            last if m/$pattern/;
+            # print "skipping: ";
+            # print;
+        }
     }
 #    if ( m/$pattern/ )
 #    {
-#	print "found: ";
-#	print;
+#       print "found: ";
+#       print;
 #    }
 #    else
 #    {
-#	print "found: end of file\n";
+#       print "found: end of file\n";
 #    }
 }
 
@@ -440,7 +438,7 @@ sub scanTo {
 # Generate a script warning
 sub adminLog {
     open( SCRIPTLOG, ">>$scriptLog" ) ||
-	die "Cannot open file for output '$scriptLog': $!";
+        die "Cannot open file for output '$scriptLog': $!";
     print SCRIPTLOG join( "\n", @_ ), "\n";
     close( SCRIPTLOG );
 }
@@ -452,7 +450,7 @@ sub adminLog {
 if ( $can_proceed )
 {
     open( ANTLOG, "$antLog" ) ||
-	die "Cannot open file for input '$antLog': $!";
+        die "Cannot open file for input '$antLog': $!";
     $antLogOpened++;
 
     $_ = <ANTLOG>;
@@ -460,10 +458,10 @@ if ( $can_proceed )
     $_ = <ANTLOG>;
     if ( defined( $_ ) && m/^\s*\[apply\].*(usage|no tests defined)/io )
     {
-	$can_proceed = 0;
-	open( TESTLOG, ">$testLog" ) ||
-	    die "Cannot open file for output '$testLog': $!";
-	print TESTLOG<<EOF;
+        $can_proceed = 0;
+        open( TESTLOG, ">$testLog" ) ||
+            die "Cannot open file for output '$testLog': $!";
+        print TESTLOG<<EOF;
 <div class="shadow"><table><tbody>
 <tr><th>Errors During Testing</th></tr>
 <tr><td><pre>
@@ -491,69 +489,69 @@ if ( $can_proceed )
     my $compileWarnings = 0;
     if ( !defined( $_ )  ||  $_ !~ m/^\s*\[cc\].*files to be compiled/ )
     {
-	if ( defined( $_ ) )
-	{
-	    adminLog( "Failed to find '[cc] ... files to be compiled' "
-		      . "in line:\n$_" );
-	}
-	$can_proceed = 0;
-	$compileMsgs = "Cannot locate compiler output for analysis.\n";
-	$compileErrs++;
+        if ( defined( $_ ) )
+        {
+            adminLog( "Failed to find '[cc] ... files to be compiled' "
+                      . "in line:\n$_" );
+        }
+        $can_proceed = 0;
+        $compileMsgs = "Cannot locate compiler output for analysis.\n";
+        $compileErrs++;
     }
     $_ = <ANTLOG>;
     while ( defined( $_ )  &&  ( s/^\s*\[cc\] //o  ||  m/^\s*$/o ) )
     {
-	if ( m/^\s*$/o ) { $_ = <ANTLOG>; next; }
-	# print "msg: $_";
-	if ( m/^(\s*[A-Za-z]:)?[^:]+:([0-9]*:)?\s*error:/o ||
-	     m/no such file/io ||
-	     m/ld returned 1 exit status/o )
-	{
-	    # print "err: $_";
-	    $compileErrs++;
-	    $can_proceed = 0;
-	}
-	elsif ( m/^(\s*[A-Za-z]:)?[^:]+:([0-9]*:)?\s*warning:/o )
-	{
-	    # print "warning: $_";
-	    $compileWarnings++;
-	    # $can_proceed = 0;
-	}
-	elsif ( m/\bBullseye(Coverage Compile| Testing)\b/o
-		|| m/^Starting link\s*$/o )
-	{
-	    $_ = "";
-	}
-	$compileMsgs .= prep_for_output( $_ );
-	$_ = <ANTLOG>;
+        if ( m/^\s*$/o ) { $_ = <ANTLOG>; next; }
+        # print "msg: $_";
+        if ( m/^(\s*[A-Za-z]:)?[^:]+:([0-9]*:)?\s*error:/o ||
+             m/no such file/io ||
+             m/ld returned 1 exit status/o )
+        {
+            # print "err: $_";
+            $compileErrs++;
+            $can_proceed = 0;
+        }
+        elsif ( m/^(\s*[A-Za-z]:)?[^:]+:([0-9]*:)?\s*warning:/o )
+        {
+            # print "warning: $_";
+            $compileWarnings++;
+            # $can_proceed = 0;
+        }
+        elsif ( m/\bBullseye(Coverage Compile| Testing)\b/o
+                || m/^Starting link\s*$/o )
+        {
+            $_ = "";
+        }
+        $compileMsgs .= prep_for_output( $_ );
+        $_ = <ANTLOG>;
     }
     $compileMsgs =~ s/^\s*starting link\s*$//io;
     if ( $compileMsgs ne "" )
     {
-	open( COMPILELOG, ">$compileLog" ) ||
-	    die "Cannot open file for output '$compileLog': $!";
-	print COMPILELOG<<EOF;
+        open( COMPILELOG, ">$compileLog" ) ||
+            die "Cannot open file for output '$compileLog': $!";
+        print COMPILELOG<<EOF;
 <div class="shadow"><table><tbody>
 <tr><th>
 EOF
-	if ( $compileErrs )
-	{
-	    print COMPILELOG "Compilation Produced Errors";
-	}
-	else
-	{
-	    print COMPILELOG "Compilation Produced Warnings";
-	}
-	print COMPILELOG<<EOF;
+        if ( $compileErrs )
+        {
+            print COMPILELOG "Compilation Produced Errors";
+        }
+        else
+        {
+            print COMPILELOG "Compilation Produced Warnings";
+        }
+        print COMPILELOG<<EOF;
 </th></tr>
 <tr><td><pre>
 $compileMsgs
 </pre></td></tr></tbody></table></div><div class="spacer">&nbsp;</div>
 EOF
-	close( COMPILELOG );
+        close( COMPILELOG );
 
-	# Add to list of reports
-	# -----------
+        # Add to list of reports
+        # -----------
         $reportCount++;
         $cfg->setProperty( "report${reportCount}.file", $compileLogRelative );
         $cfg->setProperty( "report${reportCount}.mimeType", "text/html" );
@@ -576,77 +574,77 @@ if ( $can_proceed )
     scanTo( qr/^\s*\[exec\]/ );
     if ( !defined( $_ ) || $_ !~ m/^\s*\[exec\]\s+/ )
     {
-	# adminLog( "Failed to find [junit] in line:\n$_" );
+        # adminLog( "Failed to find [junit] in line:\n$_" );
     }
     my $testMsgs    = "";
     my $timeoutOccurred = 0;
     while ( defined( $_ )  &&  ( s/^\s*\[exec\] //o || m/^$/o ) )
     {
-	# print "msg: $_";
-	if ( m/^running\s*([0-9]+)\s*test(s)?/io )
-	{
-	    print "stats: $_" if ( $debug > 1 );
-	    $testsRun     += $1;
-	}
-	elsif ( m/^failed\s*([0-9]+)\s*of\s*([0-9]+)\s*test(s)?/io )
-	{
-	    print "stats: $_" if ( $debug > 1 );
-	    $testsFailed  += $1;
-	}
-	elsif ( m/^timeout: killed/io )
-	{
-	    $timeoutOccurred++;
-	}
-	$testMsgs .= prep_for_output( $_ );
-	$_ = <ANTLOG>;
+        # print "msg: $_";
+        if ( m/^running\s*([0-9]+)\s*test(s)?/io )
+        {
+            print "stats: $_" if ( $debug > 1 );
+            $testsRun     += $1;
+        }
+        elsif ( m/^failed\s*([0-9]+)\s*of\s*([0-9]+)\s*test(s)?/io )
+        {
+            print "stats: $_" if ( $debug > 1 );
+            $testsFailed  += $1;
+        }
+        elsif ( m/^timeout: killed/io )
+        {
+            $timeoutOccurred++;
+        }
+        $testMsgs .= prep_for_output( $_ );
+        $_ = <ANTLOG>;
     }
 
     if ( $timeoutOccurred )
     {
-	$testMsgs .= "\n<p><font color=\"#ee00bb\">Testing your solution exceeded the allowable time limit for this assignment.</font></p>
+        $testMsgs .= "\n<p><font color=\"#ee00bb\">Testing your solution exceeded the allowable time limit for this assignment.</font></p>
 <p>This error occurred while executing <b>your tests</b> on your code.</p>
 <p>Most frequently, this is the result of <b>infinite recursion</b>--when
 a recursive method fails to stop calling itself--or <b>infinite
 looping</b>--when a while loop or for loop fails to stop repeating.</p>
 <p>As a result, no time remained for further analysis of your code.</p>
 \n";
-	$testsFailed++;
+        $testsFailed++;
     }
     if ( $testsFailed && $allStudentTestsMustPass )
     {
-	$testMsgs .= "\n<font color=\"#ee00bb\">All of your tests must "
-	    . "pass for you to get further feedback.</font>\n";
-	$can_proceed = 0;
+        $testMsgs .= "\n<font color=\"#ee00bb\">All of your tests must "
+            . "pass for you to get further feedback.</font>\n";
+        $can_proceed = 0;
     }
     $studentTestTitle = "Results From Running Your Tests";
     if ( $testsRun == 0 || $testsFailed > 0 )
     {
-	$studentTestTitle   = "Errors Running Your Tests";
+        $studentTestTitle   = "Errors Running Your Tests";
     }
     if ( $testsRun == 0 )
     {
-	$can_proceed = 0;
-	$testMsgs .=
-	"\n<font color=\"#ee00bb\">No tests included in submission.</font>";
+        $can_proceed = 0;
+        $testMsgs .=
+        "\n<font color=\"#ee00bb\">No tests included in submission.</font>";
     }
 
     $studentCasesPercent = $testsRun > 0 ? int(
-	( ( $testsRun - $testsFailed ) / $testsRun ) * 100.0 + 0.5 )
-	: 0;
+        ( ( $testsRun - $testsFailed ) / $testsRun ) * 100.0 + 0.5 )
+        : 0;
     if ( $testsFailed && $studentCasesPercent == 100 )
     {
-	# Don't show 100% if some cases failed
-	$studentCasesPercent--;
+        # Don't show 100% if some cases failed
+        $studentCasesPercent--;
     }
 
     if ( -f "memwatch.log" )
     {
-	open( MEMWATCHLOG, "memwatch.log" ) ||
-	    die "Cannot open file for input 'memwatch.log': $!";
-	my @memLines = <MEMWATCHLOG>;
-	close( MEMWATCHLOG );
-	$testMsgs .= "\nDynamically allocated memory (heap usage):\n"
-	    . join( "", @memLines );
+        open( MEMWATCHLOG, "memwatch.log" ) ||
+            die "Cannot open file for input 'memwatch.log': $!";
+        my @memLines = <MEMWATCHLOG>;
+        close( MEMWATCHLOG );
+        $testMsgs .= "\nDynamically allocated memory (heap usage):\n"
+            . join( "", @memLines );
     }
     $studentTestMsgs = $testMsgs;
 }
@@ -670,47 +668,47 @@ if ( $can_proceed )
     my $collectingMsgs  = 1;
     if ( !defined( $_ )  ||  $_ !~ m/^\s*\[cc\].*files to be compiled/ )
     {
-	adminLog( "Failed to find instructor '[cc] ... files to be compiled' "
-		  . "in line:\n" . ( defined( $_ ) ? $_ : "<null>" ) );
-	$compileMsgs = "Cannot locate behavioral analysis output.\n";
-	$compileErrs++;
-	$can_proceed = 0;
+        adminLog( "Failed to find instructor '[cc] ... files to be compiled' "
+                  . "in line:\n" . ( defined( $_ ) ? $_ : "<null>" ) );
+        $compileMsgs = "Cannot locate behavioral analysis output.\n";
+        $compileErrs++;
+        $can_proceed = 0;
     }
     $_ = <ANTLOG>;
     while ( defined( $_ )  &&  ( s/^\s*\[cc\] //o  ||  m/^\s*$/o ) )
     {
-	if ( m/^\s*$/o ) { $_ = <ANTLOG>; next; }
-	# print "msg: $_";
-	if ( m/^(\s*[A-Za-z]:)?[^:]+:([0-9]*:)?\s*error:/o ||
-	     m/no such file/io ||
-	     m/ld returned 1 exit status/o )
-	{
-	    if ( $compileErrs ) { $collectingMsgs = 0; }
-	    # print "err: $_";
-	    $compileErrs++;
-	    $can_proceed = 0;
-	}
-	if ( m/in (file|member)/io || m/\(Each/o ) {
-	    do
-	    {
-		print "skipping: $_" if ( $debug > 4 );
-		$_ = <ANTLOG>;
-	    } while ( defined( $_ ) && m/^\s*\[cc\]\s\s+/o );
-	    next;
-	}
-	if ( $collectingMsgs )
-	{
-	    $compileMsgs .= prep_for_output( $_ );
-	}
-	$_ = <ANTLOG>;
+        if ( m/^\s*$/o ) { $_ = <ANTLOG>; next; }
+        # print "msg: $_";
+        if ( m/^(\s*[A-Za-z]:)?[^:]+:([0-9]*:)?\s*error:/o ||
+             m/no such file/io ||
+             m/ld returned 1 exit status/o )
+        {
+            if ( $compileErrs ) { $collectingMsgs = 0; }
+            # print "err: $_";
+            $compileErrs++;
+            $can_proceed = 0;
+        }
+        if ( m/in (file|member)/io || m/\(Each/o ) {
+            do
+            {
+                print "skipping: $_" if ( $debug > 4 );
+                $_ = <ANTLOG>;
+            } while ( defined( $_ ) && m/^\s*\[cc\]\s\s+/o );
+            next;
+        }
+        if ( $collectingMsgs )
+        {
+            $compileMsgs .= prep_for_output( $_ );
+        }
+        $_ = <ANTLOG>;
     }
     $compileMsgs =~ s/^\s*starting link\s*$//io;
     if ( $compileErrs )
     {
-	my $feedbackGenerator = new Web_CAT::FeedbackGenerator( $instrLog );
-	$feedbackGenerator->startFeedbackSection(
-	    "Estimate of Problem Coverage" );
-	$feedbackGenerator->print( <<EOF );
+        my $feedbackGenerator = new Web_CAT::FeedbackGenerator( $instrLog );
+        $feedbackGenerator->startFeedbackSection(
+            "Estimate of Problem Coverage" );
+        $feedbackGenerator->print( <<EOF );
 <p><b>Problem coverage: <font color="#ee00bb">unknown</font></b></p><p>
 <p>
 <font color="#ee00bb">Web-CAT was unable to assess your test cases.</font></p>
@@ -735,8 +733,8 @@ EOF
         $feedbackGenerator->endFeedbackSection;
         $feedbackGenerator->close;
 
-	# Add to list of reports
-	# -----------
+        # Add to list of reports
+        # -----------
         $reportCount++;
         $cfg->setProperty( "report${reportCount}.file", $instrLogRelative );
         $cfg->setProperty( "report${reportCount}.mimeType", "text/html" );
@@ -758,126 +756,126 @@ if ( $can_proceed )
     my $memwatchLog = "";
     if ( !defined( $_ ) || $_ !~ m/^\s*\[exec\]\s+/ )
     {
-	adminLog( "Failed to find [exec] in line:\n"
-		  . ( defined( $_ ) ? $_ : "<null>" ) );
-	$can_proceed = 0;
-	$instrHints{"error: Cannot locate behavioral analysis output.\n"} = 1;
-	$instructorTestsFailed++;
+        adminLog( "Failed to find [exec] in line:\n"
+                  . ( defined( $_ ) ? $_ : "<null>" ) );
+        $can_proceed = 0;
+        $instrHints{"error: Cannot locate behavioral analysis output.\n"} = 1;
+        $instructorTestsFailed++;
     }
     while ( defined( $_ )  &&  ( s/^\s*\[exec\] //o || m/^\s*$/o ) )
     {
-	# print "msg: $_";
-	if ( m/^running\s*([0-9]+)\s*tests/io )
-	{
-	    print "stats: $_" if ( $debug > 1 );
-	    $instructorTestsRun += $1;
- 	    if ( m/^running\s*([0-9]+)\s*tests(.*)\.ok!$/io )
-	    {
-		$resultsSeen++;
-	    }
-	}
-	elsif ( m/^failed\s*([0-9]+)\s*of\s*([0-9]+)\s*tests/io )
-	{
-	    print "stats: $_" if ( $debug > 1 );
-	    $instructorTestsFailed += $1;
-	    $resultsSeen++;
-	}
-	elsif ( s/^In .*:$//o )
-	{
-	    # Just ignore messages that point to file locations
-	}
-	elsif ( s/^.*(\"?)(SIG[A-Z]*):\s*/$2: /o )
-	{
-	    if ( $1 eq "\"" ) { s/\"$//o; }
-	    # print "hint: $_";
-	    if ( $hintsLimit != 0 )
-	    {
-		$instrHints{prep_for_output($_)} = 1;
-	    }
-	}
-	elsif ( s/^.*(\"?)\bhint:\s*//io )
-	{
-	    if ( $1 eq "\"" ) { s/\"$//o; }
-	    # print "hint: $_";
-	    if ( $hintsLimit != 0 )
-	    {
-		$instrHints{prep_for_output($_)} = 1;
-	    }
-	}
-	elsif ( s,^/=MEMWATCH=/:\s*,,o )
-	{
-	    $memwatchLog .= prep_for_output($_);
-	}
-	elsif ( m/^timeout: killed/io )
-	{
-	    $timeoutOccurred++;
-	}
-	elsif ( m/^\.+ok!$/io )
-	{
-	    $resultsSeen++;
-	}
-	# $testMsgs .= prep_for_output( $_ );
-	$_ = <ANTLOG>;
+        # print "msg: $_";
+        if ( m/^running\s*([0-9]+)\s*tests/io )
+        {
+            print "stats: $_" if ( $debug > 1 );
+            $instructorTestsRun += $1;
+            if ( m/^running\s*([0-9]+)\s*tests(.*)\.ok!$/io )
+            {
+                $resultsSeen++;
+            }
+        }
+        elsif ( m/^failed\s*([0-9]+)\s*of\s*([0-9]+)\s*tests/io )
+        {
+            print "stats: $_" if ( $debug > 1 );
+            $instructorTestsFailed += $1;
+            $resultsSeen++;
+        }
+        elsif ( s/^In .*:$//o )
+        {
+            # Just ignore messages that point to file locations
+        }
+        elsif ( s/^.*(\"?)(SIG[A-Z]*):\s*/$2: /o )
+        {
+            if ( $1 eq "\"" ) { s/\"$//o; }
+            # print "hint: $_";
+            if ( $hintsLimit != 0 )
+            {
+                $instrHints{prep_for_output($_)} = 1;
+            }
+        }
+        elsif ( s/^.*(\"?)\bhint:\s*//io )
+        {
+            if ( $1 eq "\"" ) { s/\"$//o; }
+            # print "hint: $_";
+            if ( $hintsLimit != 0 )
+            {
+                $instrHints{prep_for_output($_)} = 1;
+            }
+        }
+        elsif ( s,^/=MEMWATCH=/:\s*,,o )
+        {
+            $memwatchLog .= prep_for_output($_);
+        }
+        elsif ( m/^timeout: killed/io )
+        {
+            $timeoutOccurred++;
+        }
+        elsif ( m/^\.+ok!$/io )
+        {
+            $resultsSeen++;
+        }
+        # $testMsgs .= prep_for_output( $_ );
+        $_ = <ANTLOG>;
     }
 
     if ( !$resultsSeen && $instructorTestsRun > 0 )
     {
-	$instructorTestsFailed = $instructorTestsRun;
-	print "no results seen, failed = $instructorTestsFailed\n"
-	    if ( $debug > 1 );
+        $instructorTestsFailed = $instructorTestsRun;
+        print "no results seen, failed = $instructorTestsFailed\n"
+            if ( $debug > 1 );
     }
     my $instrHints = "";
     if ( %instrHints || $memwatchLog ne "" )
     {
-	my $wantHints = $hintsLimit;
-	if ( $wantHints )
-	{
-	    $instrHints = "<p>The following hint(s) may help you locate "
-	    . "some ways in which your solution and your testing may be "
-	    . "improved:</p>\n<pre>\n";
-	    foreach my $msg ( keys %instrHints )
-	    {
-		if ( $msg =~ m/^(assert|SIG)/o )
-		{
-		    $instrHints .= "hint: " . $msg;
-		}
-		elsif ( $hintsLimit > 0 )
-		{
-		    $instrHints .=
-			"hint: your code/tests do not correctly cover "
-			. $msg;
-		    $hintsLimit--;
-		}
-	    }
-	    my @hintKeys = keys %instrHints;
-	    my $hintCount = $#hintKeys;
-	    if ( $hintCount > $wantHints )
-	    {
-		$instrHints .= "\n($wantHints of $hintCount hints shown)\n";
-	    }
-	}
-	if ( $memwatchLog ne "" )
-	{
-	    if ( length( $instrHints ) )
-	    {
-		$instrHints .= "\n\n";
-	    }
-	    else
-	    {
-		$instrHints = "<pre>\n";
-	    }
-	    $instrHints .= $memwatchLog;
-	}
-	$instrHints .= "</pre>";
+        my $wantHints = $hintsLimit;
+        if ( $wantHints )
+        {
+            $instrHints = "<p>The following hint(s) may help you locate "
+            . "some ways in which your solution and your testing may be "
+            . "improved:</p>\n<pre>\n";
+            foreach my $msg ( keys %instrHints )
+            {
+                if ( $msg =~ m/^(assert|SIG)/o )
+                {
+                    $instrHints .= "hint: " . $msg;
+                }
+                elsif ( $hintsLimit > 0 )
+                {
+                    $instrHints .=
+                        "hint: your code/tests do not correctly cover "
+                        . $msg;
+                    $hintsLimit--;
+                }
+            }
+            my @hintKeys = keys %instrHints;
+            my $hintCount = $#hintKeys;
+            if ( $hintCount > $wantHints )
+            {
+                $instrHints .= "\n($wantHints of $hintCount hints shown)\n";
+            }
+        }
+        if ( $memwatchLog ne "" )
+        {
+            if ( length( $instrHints ) )
+            {
+                $instrHints .= "\n\n";
+            }
+            else
+            {
+                $instrHints = "<pre>\n";
+            }
+            $instrHints .= $memwatchLog;
+        }
+        $instrHints .= "</pre>";
     }
 
     my $feedbackGenerator = new Web_CAT::FeedbackGenerator( $instrLog );
     $feedbackGenerator->startFeedbackSection(
-	"Estimate of Problem Coverage" );
+        "Estimate of Problem Coverage" );
 
     if ( $timeoutOccurred )
     {
-	$feedbackGenerator->print( <<EOF );
+        $feedbackGenerator->print( <<EOF );
 <p><b>Problem coverage: <font color="#ee00bb">unknown</font></b></p><p>
 <p><font color="#ee00bb">Testing your solution exceeded the allowable time
 limit for this assignment.</font></p>
@@ -902,9 +900,9 @@ $instrHints
 EOF
     }
     elsif ( $instructorTestsRun > 0 &&
-	 $instructorTestsFailed == $instructorTestsRun )
+         $instructorTestsFailed == $instructorTestsRun )
     {
-	$feedbackGenerator->print( <<EOF );
+        $feedbackGenerator->print( <<EOF );
 <p><b>Problem coverage: <font color="#ee00bb">unknown</font></b></p><p>
 <p><font color="#ee00bb">Your problem setup does not appear to be consistent
 with the assignment.</font></p>
@@ -924,10 +922,10 @@ requested in the assignment in setting up your solution.
 EOF
     }
     elsif ( $instructorTestsRun == 0 ||
-	    $instructorTestsFailed == 0 )
+            $instructorTestsFailed == 0 )
     {
-	$instructorCasesPercent = 100;
-	$feedbackGenerator->print( <<EOF );
+        $instructorCasesPercent = 100;
+        $feedbackGenerator->print( <<EOF );
 <p><b>Problem coverage: 100%</b></p><p>
 <p>Your solution appears to cover all required behavior for this assignment.
 Make sure that your tests cover all of the behavior required.</p>
@@ -940,12 +938,12 @@ EOF
     }
     else
     {
-	$instructorCasesPercent = $instructorTestsRun > 0 ?
-	    int(
-		( ( $instructorTestsRun - $instructorTestsFailed ) /
-		  $instructorTestsRun ) * 100.0 + 0.5 )
-	    : 0;
-	$feedbackGenerator->print( <<EOF );
+        $instructorCasesPercent = $instructorTestsRun > 0 ?
+            int(
+                ( ( $instructorTestsRun - $instructorTestsFailed ) /
+                  $instructorTestsRun ) * 100.0 + 0.5 )
+            : 0;
+        $feedbackGenerator->print( <<EOF );
 <p><b>Problem coverage: <font color="#ee00bb">$instructorCasesPercent%</font></b></p>
 <p>For this assignment, the proportion of the problem that is covered by your
 test cases is being assessed by running a suite of reference tests against
@@ -974,12 +972,12 @@ EOF
 
     if ( $can_proceed )
     {
-	scanTo( qr/^BUILD FAILED/ );
-	if ( defined( $_ )  &&  m/^BUILD FAILED/ )
-	{
-	    warn "ant BUILD FAILED unexpectedly.";
-	    $can_proceed = 0;
-	}
+        scanTo( qr/^BUILD FAILED/ );
+        if ( defined( $_ )  &&  m/^BUILD FAILED/ )
+        {
+            warn "ant BUILD FAILED unexpectedly.";
+            $can_proceed = 0;
+        }
     }
 }
 elsif ( $debug ) { print "instructor test results analysis skipped\n"; }
@@ -1004,23 +1002,23 @@ if ( $can_proceed )
 {
     if ( $instructorTestsRun == 0 ) { $instructorTestsRun = 1; }
     $runtimeScoreWithoutCoverage =
-	$maxCorrectnessScore
-	* ( ( $instructorTestsRun - $instructorTestsFailed )
-	    / $instructorTestsRun );
+        $maxCorrectnessScore
+        * ( ( $instructorTestsRun - $instructorTestsFailed )
+            / $instructorTestsRun );
 
     # No credit unless all student tests pass
     if ( $testsFailed )
     {
-	if ( $allStudentTestsMustPass )
-	{
-	    $runtimeScoreWithoutCoverage = 0;
-	}
-	else
-	{
-	    $runtimeScoreWithoutCoverage *=
-		( $testsRun - $testsFailed )
-		/ $testsRun;
-	}
+        if ( $allStudentTestsMustPass )
+        {
+            $runtimeScoreWithoutCoverage = 0;
+        }
+        else
+        {
+            $runtimeScoreWithoutCoverage *=
+                ( $testsRun - $testsFailed )
+                / $testsRun;
+        }
     }
 
     # First, the static analysis, tool-based score
@@ -1052,53 +1050,53 @@ sub extractEntity
     $line =~ s/\s+$//o;
     if ( $line =~ s/^\s*case\b\s*//o )
     {
-	$line =~ s/:[^:]*$//o;
+        $line =~ s/:[^:]*$//o;
     }
     elsif ( $line =~ s/^\s*catch\b\s*//o )
     {
-	$line =~ s/\s*\{.*$//o;
-	$line =~ s/\)[^\)]*$/\)/o;
+        $line =~ s/\s*\{.*$//o;
+        $line =~ s/\)[^\)]*$/\)/o;
     }
     else
     {
         # trim anything from { to end
-	#print "1: '$line'\n";
-	$line =~ s/\s*\{.*$//o;
-	#print "2: '$line'\n";
-	my $open  = ( $line =~ tr/\(// );
-	my $close = ( $line =~ tr/\)// );
-	while ( $open > $close )
-	{
-	    $line =~ s/^[^\(]*\(//o;
-	    $open--;
-	}
-	#print "3: '$line'\n";
-	while ( $close > $open )
-	{
-	    $line =~ s/\)[^\)]*$//o;
-	    $close--;
-	}
-	$line =~ s/^\s*(if|while)\s*\(/\(/o;
-	if ( $line =~ s/^\s*\(/\(/o )
-	{
-	    $line =~ s/\)[^\)]*$/\)/o;
-	}
-	#print "4: '$line'\n";
-	$line =~ s/^[&|\s]+//o;
-	$line =~ s/[&|\s]+$//o;
-	my $first = "";
-	my $last  = "";
-	if ( length( $line ) )
-	{
-	    $first = substr( $line, 0, 1 );
-	    $last  = substr( $line, -1 );
-	    if ( ( $first ne "'" && $first ne '"' && $first ne "(" )
-		 || ( $last ne "'" && $last ne '"' && $last ne ")" ) )
-	    {
-		$line = "'$line'";
-	    }
-	}
-	#print "5: '$line'\n";
+        #print "1: '$line'\n";
+        $line =~ s/\s*\{.*$//o;
+        #print "2: '$line'\n";
+        my $open  = ( $line =~ tr/\(// );
+        my $close = ( $line =~ tr/\)// );
+        while ( $open > $close )
+        {
+            $line =~ s/^[^\(]*\(//o;
+            $open--;
+        }
+        #print "3: '$line'\n";
+        while ( $close > $open )
+        {
+            $line =~ s/\)[^\)]*$//o;
+            $close--;
+        }
+        $line =~ s/^\s*(if|while)\s*\(/\(/o;
+        if ( $line =~ s/^\s*\(/\(/o )
+        {
+            $line =~ s/\)[^\)]*$/\)/o;
+        }
+        #print "4: '$line'\n";
+        $line =~ s/^[&|\s]+//o;
+        $line =~ s/[&|\s]+$//o;
+        my $first = "";
+        my $last  = "";
+        if ( length( $line ) )
+        {
+            $first = substr( $line, 0, 1 );
+            $last  = substr( $line, -1 );
+            if ( ( $first ne "'" && $first ne '"' && $first ne "(" )
+                 || ( $last ne "'" && $last ne '"' && $last ne ")" ) )
+            {
+                $line = "'$line'";
+            }
+        }
+        #print "5: '$line'\n";
     }
     return htmlEscape( $line );
 }
@@ -1129,288 +1127,288 @@ if ( $testsRun && $measureCodeCoverage )
     my $topLevelGradedElements = 0;
     if ( open ( COVERAGE, $coverageLog ) )
     {
-	while ( <COVERAGE> )
-	{
-	    chomp;
-	    my @entry = split( /,/ );
-	    next if ( $#entry < 6 );
-	    my $normalizedFile = $entry[0];
-	    $normalizedFile =~ s,\\,/,g;
-	    next if (   $normalizedFile =~ m/\Q$scriptData\E/o
-		     || ( defined( $assignmentIncludes ) &&
-			  $normalizedFile =~ m/^\Q$assignmentIncludes\E/o )
-		     || ( defined( $generalIncludes ) &&
-			  $normalizedFile =~ m/^\Q$generalIncludes\E/o )
-		    );
-	    $topLevelGradedElements += $entry[2];
-	    if ( $coverageMetric == 2 )
-	    {
-		$topLevelGradedElements += $entry[5];
-	    }
-	}
-	close( COVERAGE );
-	print "topLevelGradedElements = $topLevelGradedElements\n"
-	    if ( $debug > 2 );
+        while ( <COVERAGE> )
+        {
+            chomp;
+            my @entry = split( /,/ );
+            next if ( $#entry < 6 );
+            my $normalizedFile = $entry[0];
+            $normalizedFile =~ s,\\,/,g;
+            next if (   $normalizedFile =~ m/\Q$scriptData\E/o
+                     || ( defined( $assignmentIncludes ) &&
+                          $normalizedFile =~ m/^\Q$assignmentIncludes\E/o )
+                     || ( defined( $generalIncludes ) &&
+                          $normalizedFile =~ m/^\Q$generalIncludes\E/o )
+                    );
+            $topLevelGradedElements += $entry[2];
+            if ( $coverageMetric == 2 )
+            {
+                $topLevelGradedElements += $entry[5];
+            }
+        }
+        close( COVERAGE );
+        print "topLevelGradedElements = $topLevelGradedElements\n"
+            if ( $debug > 2 );
 
-	if ( $coverageMetric == 2 )
-	{
-	    $cfg->setProperty( "statElementsLabel",
-			       "Methods/Conditions/Decisions Executed" );
-	}
-	else
-	{
-	    $cfg->setProperty( "statElementsLabel", "Methods Executed" );
-	}
-	my $ptsPerUncovered = 0.0;
-	if ( $topLevelGradedElements > 0 && $runtimeScoreWithoutCoverage > 0 )
-	{
-	    $ptsPerUncovered = -1.0 /
-		$topLevelGradedElements * $runtimeScoreWithoutCoverage;
-	}
+        if ( $coverageMetric == 2 )
+        {
+            $cfg->setProperty( "statElementsLabel",
+                               "Methods/Conditions/Decisions Executed" );
+        }
+        else
+        {
+            $cfg->setProperty( "statElementsLabel", "Methods Executed" );
+        }
+        my $ptsPerUncovered = 0.0;
+        if ( $topLevelGradedElements > 0 && $runtimeScoreWithoutCoverage > 0 )
+        {
+            $ptsPerUncovered = -1.0 /
+                $topLevelGradedElements * $runtimeScoreWithoutCoverage;
+        }
 
-	if ( open ( COVERAGE, $coverageLog ) )
-	{
-	    while ( <COVERAGE> )
-	    {
-		chomp;
-		my @entry = split( /,/ );
-		next if ( $#entry < 6 );
-		my $fqFileName = $entry[0];
-		# $fqFileName =~ s/^(\")?([^\"]*)(\")?$/$2/o;
-		if ( length( $fqFileName ) > 0
-		     && substr( $fqFileName, 0, 1 ) eq '"' )
-		{
-		    $fqFileName = substr( $fqFileName, 1 );
-		}
-		if ( length( $fqFileName ) > 0
-		     && substr( $fqFileName, -1 ) eq '"' )
-		{
-		    $fqFileName = substr( $fqFileName, 0, -1 );
-		}
-		$fqFileName =~ s,\\,/,go;
-		next if (   $fqFileName =~ m/\Q$scriptData\E/o
-		         || ( defined( $assignmentIncludes ) &&
-			      $fqFileName =~ m/^\Q$assignmentIncludes\E/o )
-		         || ( defined( $generalIncludes ) &&
-			      $fqFileName =~ m/^\Q$generalIncludes\E/o )
-		        );
-		$fqFileName =~ s,^\Q${working_dir}\E(/)*,,o;
+        if ( open ( COVERAGE, $coverageLog ) )
+        {
+            while ( <COVERAGE> )
+            {
+                chomp;
+                my @entry = split( /,/ );
+                next if ( $#entry < 6 );
+                my $fqFileName = $entry[0];
+                # $fqFileName =~ s/^(\")?([^\"]*)(\")?$/$2/o;
+                if ( length( $fqFileName ) > 0
+                     && substr( $fqFileName, 0, 1 ) eq '"' )
+                {
+                    $fqFileName = substr( $fqFileName, 1 );
+                }
+                if ( length( $fqFileName ) > 0
+                     && substr( $fqFileName, -1 ) eq '"' )
+                {
+                    $fqFileName = substr( $fqFileName, 0, -1 );
+                }
+                $fqFileName =~ s,\\,/,go;
+                next if (   $fqFileName =~ m/\Q$scriptData\E/o
+                         || ( defined( $assignmentIncludes ) &&
+                              $fqFileName =~ m/^\Q$assignmentIncludes\E/o )
+                         || ( defined( $generalIncludes ) &&
+                              $fqFileName =~ m/^\Q$generalIncludes\E/o )
+                        );
+                $fqFileName =~ s,^\Q${working_dir}\E(/)*,,o;
 
-		if ( $debug > 2 )
-		{
-		    print "coverage: $fqFileName: $_\n";
-		}
+                if ( $debug > 2 )
+                {
+                    print "coverage: $fqFileName: $_\n";
+                }
 
-		$numCodeMarkups++;
-		$codeMarkupIds{$fqFileName} = $numCodeMarkups;
-		$cfg->setProperty(
-		    "codeMarkup${numCodeMarkups}.sourceFileName",
-		    $fqFileName );
-		$cfg->setProperty( "codeMarkup${numCodeMarkups}.methods",
-				   $entry[2] );
-		$cfg->setProperty(
-		    "codeMarkup${numCodeMarkups}.methodsCovered",
-		    $entry[1] );
-		$cfg->setProperty( "codeMarkup${numCodeMarkups}.conditionals",
-				   $entry[5] );
-		$cfg->setProperty(
-		    "codeMarkup${numCodeMarkups}.conditionalsCovered",
-		    $entry[4] );
+                $numCodeMarkups++;
+                $codeMarkupIds{$fqFileName} = $numCodeMarkups;
+                $cfg->setProperty(
+                    "codeMarkup${numCodeMarkups}.sourceFileName",
+                    $fqFileName );
+                $cfg->setProperty( "codeMarkup${numCodeMarkups}.methods",
+                                   $entry[2] );
+                $cfg->setProperty(
+                    "codeMarkup${numCodeMarkups}.methodsCovered",
+                    $entry[1] );
+                $cfg->setProperty( "codeMarkup${numCodeMarkups}.conditionals",
+                                   $entry[5] );
+                $cfg->setProperty(
+                    "codeMarkup${numCodeMarkups}.conditionalsCovered",
+                    $entry[4] );
 
-		my $myElements        = $entry[2];
-		my $myElementsCovered = $entry[1];
-		if ( $coverageMetric == 2 )
-		{
-		    $myElements        += $entry[5];
-		    $myElementsCovered += $entry[4];
-		}
-		$gradedElements += $myElements;
-		$gradedElementsCovered += $myElementsCovered;
+                my $myElements        = $entry[2];
+                my $myElementsCovered = $entry[1];
+                if ( $coverageMetric == 2 )
+                {
+                    $myElements        += $entry[5];
+                    $myElementsCovered += $entry[4];
+                }
+                $gradedElements += $myElements;
+                $gradedElementsCovered += $myElementsCovered;
 
-		$cfg->setProperty( "codeMarkup${numCodeMarkups}.elements",
-				   $myElements );
-		$cfg->setProperty(
-		    "codeMarkup${numCodeMarkups}.elementsCovered",
-		    $myElementsCovered );
-		$cfg->setProperty( "codeMarkup${numCodeMarkups}.deductions",
-				   ( $myElements - $myElementsCovered ) *
-				   $ptsPerUncovered );
-	    }
-	    close( COVERAGE );
+                $cfg->setProperty( "codeMarkup${numCodeMarkups}.elements",
+                                   $myElements );
+                $cfg->setProperty(
+                    "codeMarkup${numCodeMarkups}.elementsCovered",
+                    $myElementsCovered );
+                $cfg->setProperty( "codeMarkup${numCodeMarkups}.deductions",
+                                   ( $myElements - $myElementsCovered ) *
+                                   $ptsPerUncovered );
+            }
+            close( COVERAGE );
 
-	    $cfg->setProperty( "numCodeMarkups", $numCodeMarkups );
+            $cfg->setProperty( "numCodeMarkups", $numCodeMarkups );
 
-	    if ( $gradedElements > 0 )
-	    {
-		$codeCoveragePercent = $gradedElements > 0 ? int(
-		    ( $gradedElementsCovered / $gradedElements )
-		    * 100.0 + 0.5 )
-		    : 0;
-		if ( $gradedElementsCovered < $gradedElements
-		     && $codeCoveragePercent == 100 )
-		{
-		    # Don't show 100% if some cases failed
-		    $codeCoveragePercent--;
-		}
-		$runtimeScore *= $gradedElementsCovered / $gradedElements;
-	    }
-	    else
-	    {
-		$runtimeScore = 0;
-	    }
-	}
+            if ( $gradedElements > 0 )
+            {
+                $codeCoveragePercent = $gradedElements > 0 ? int(
+                    ( $gradedElementsCovered / $gradedElements )
+                    * 100.0 + 0.5 )
+                    : 0;
+                if ( $gradedElementsCovered < $gradedElements
+                     && $codeCoveragePercent == 100 )
+                {
+                    # Don't show 100% if some cases failed
+                    $codeCoveragePercent--;
+                }
+                $runtimeScore *= $gradedElementsCovered / $gradedElements;
+            }
+            else
+            {
+                $runtimeScore = 0;
+            }
+        }
 
-	# Now process the CSV file for source info
-	$coverageLog = "$log_dir/covfunc.out";
-	if ( open ( COVERAGE, $coverageLog ) )
-	{
-	    while ( <COVERAGE> )
-	    {
-		chomp;
-		my @entry = split( /,/ );
-		next if ( $#entry < 5 );
-		$entry[0] =~ s,\\,/,go;
-		next if (   $entry[0] =~ m/\Q$scriptData\E/o
-		         || ( defined( $assignmentIncludes ) &&
-			      $entry[0] =~ m/^\Q$assignmentIncludes\E/o )
-			 || ( defined( $generalIncludes ) &&
-			      $entry[0] =~ m/^\Q$generalIncludes\E/o )
-		        );
-		$entry[0] =~ s,^\Q${working_dir}\E(/)*,,o;
-		if ( $entry[3] eq "function" && $entry[4] eq "" )
-		{
-		    if ( !defined $codeMessages{$entry[0]} )
-		    {
-			$codeMessages{$entry[0]} = {};
-		    }
-		    if ( !defined $codeMessages{$entry[0]}{$entry[1]} )
-		    {
-			$codeMessages{$entry[0]}{$entry[1]} = {
-			    category => 'coverage',
-			    coverage => 'function',
-			    message  => "Method "
-				. htmlEscape( join( ', ', @entry[5..$#entry] ) )
-				. " was never executed."
-			    };
-		    }
-		}
-	    }
-	    close( COVERAGE );
-	}
+        # Now process the CSV file for source info
+        $coverageLog = "$log_dir/covfunc.out";
+        if ( open ( COVERAGE, $coverageLog ) )
+        {
+            while ( <COVERAGE> )
+            {
+                chomp;
+                my @entry = split( /,/ );
+                next if ( $#entry < 5 );
+                $entry[0] =~ s,\\,/,go;
+                next if (   $entry[0] =~ m/\Q$scriptData\E/o
+                         || ( defined( $assignmentIncludes ) &&
+                              $entry[0] =~ m/^\Q$assignmentIncludes\E/o )
+                         || ( defined( $generalIncludes ) &&
+                              $entry[0] =~ m/^\Q$generalIncludes\E/o )
+                        );
+                $entry[0] =~ s,^\Q${working_dir}\E(/)*,,o;
+                if ( $entry[3] eq "function" && $entry[4] eq "" )
+                {
+                    if ( !defined $codeMessages{$entry[0]} )
+                    {
+                        $codeMessages{$entry[0]} = {};
+                    }
+                    if ( !defined $codeMessages{$entry[0]}{$entry[1]} )
+                    {
+                        $codeMessages{$entry[0]}{$entry[1]} = {
+                            category => 'coverage',
+                            coverage => 'function',
+                            message  => "Method "
+                                . htmlEscape( join( ', ', @entry[5..$#entry] ) )
+                                . " was never executed."
+                            };
+                    }
+                }
+            }
+            close( COVERAGE );
+        }
 
-	# Now process the CSV file for source info
-	$coverageLog = "$log_dir/covsrc.out";
-	if ( open ( COVERAGE, $coverageLog ) )
-	{
-	    my $thisFile;
-	    while ( <COVERAGE> )
-	    {
-		chomp;
-		if ( m/^(\S*):$/o )
-		{
-		    $thisFile = $1;
-		    $thisFile =~ s,\\,/,go;
-		    if (   $thisFile =~ m/\Q$scriptData\E/o
-		        || ( defined( $assignmentIncludes ) &&
-			     $thisFile =~ m/^\Q$assignmentIncludes\E/o )
-			|| ( defined( $generalIncludes ) &&
-			     $thisFile =~ m/^\Q$generalIncludes\E/o )
-		       )
-		    {
-			$thisFile = undef;
-		    }
-		    else
-		    {
-			$thisFile =~ s,^\Q${working_dir}\E(/)*,,o;
-		    }
-		    next;
-		}
-		if ( s/^\s*-->//o )
-		{
-		    if ( !defined( $thisFile ) )
-		    {
-			#print "Warning: no file for coverage line:\n$_\n";
-			next;
-		    }
-		    s/^(t|T|f|F)?\s*([0-9]+)([a-z]?)\s*//o;
-		    my $tag  = $1;
-		    my $line = $2;
-		    my $prefix = "Method ";
-		    my $suffix = " was never executed.";
-		    if ( !defined( $tag ) )
-		    {
-			if ( m/^\s*case\b/o )
-			{
-			    $prefix = "Case ";
-			    $tag    = "c";
-			    $suffix = " was never executed.";
-			}
-			elsif ( m/^\s*catch\b/o )
-			{
-			    $prefix = "Exception handler for ";
-			    $tag    = "x";
-			    $suffix = " was never executed.";
-			}
-			else
-			{
-			    $prefix = "Expression ";
-			    $tag    = "e";
-			    $suffix = " was never evaluated.";
-			}
-		    }
-		    elsif ( $tag eq "T" )
-		    {
-			$prefix = "Decision ";
-			$suffix = " was only evaluated true.";
-		    }
-		    elsif ( $tag eq "F" )
-		    {
-			$prefix = "Decision ";
-			$suffix = " was only evaluated false.";
-		    }
-		    elsif ( $tag eq "t" )
-		    {
-			$prefix = "Condition ";
-			$suffix = " was only evaluated true.";
-		    }
-		    else # ( $tag eq "f" )
-		    {
-			$prefix = "Condition ";
-			$suffix = " was only evaluated false.";
-		    }
+        # Now process the CSV file for source info
+        $coverageLog = "$log_dir/covsrc.out";
+        if ( open ( COVERAGE, $coverageLog ) )
+        {
+            my $thisFile;
+            while ( <COVERAGE> )
+            {
+                chomp;
+                if ( m/^(\S*):$/o )
+                {
+                    $thisFile = $1;
+                    $thisFile =~ s,\\,/,go;
+                    if (   $thisFile =~ m/\Q$scriptData\E/o
+                        || ( defined( $assignmentIncludes ) &&
+                             $thisFile =~ m/^\Q$assignmentIncludes\E/o )
+                        || ( defined( $generalIncludes ) &&
+                             $thisFile =~ m/^\Q$generalIncludes\E/o )
+                       )
+                    {
+                        $thisFile = undef;
+                    }
+                    else
+                    {
+                        $thisFile =~ s,^\Q${working_dir}\E(/)*,,o;
+                    }
+                    next;
+                }
+                if ( s/^\s*-->//o )
+                {
+                    if ( !defined( $thisFile ) )
+                    {
+                        #print "Warning: no file for coverage line:\n$_\n";
+                        next;
+                    }
+                    s/^(t|T|f|F)?\s*([0-9]+)([a-z]?)\s*//o;
+                    my $tag  = $1;
+                    my $line = $2;
+                    my $prefix = "Method ";
+                    my $suffix = " was never executed.";
+                    if ( !defined( $tag ) )
+                    {
+                        if ( m/^\s*case\b/o )
+                        {
+                            $prefix = "Case ";
+                            $tag    = "c";
+                            $suffix = " was never executed.";
+                        }
+                        elsif ( m/^\s*catch\b/o )
+                        {
+                            $prefix = "Exception handler for ";
+                            $tag    = "x";
+                            $suffix = " was never executed.";
+                        }
+                        else
+                        {
+                            $prefix = "Expression ";
+                            $tag    = "e";
+                            $suffix = " was never evaluated.";
+                        }
+                    }
+                    elsif ( $tag eq "T" )
+                    {
+                        $prefix = "Decision ";
+                        $suffix = " was only evaluated true.";
+                    }
+                    elsif ( $tag eq "F" )
+                    {
+                        $prefix = "Decision ";
+                        $suffix = " was only evaluated false.";
+                    }
+                    elsif ( $tag eq "t" )
+                    {
+                        $prefix = "Condition ";
+                        $suffix = " was only evaluated true.";
+                    }
+                    else # ( $tag eq "f" )
+                    {
+                        $prefix = "Condition ";
+                        $suffix = " was only evaluated false.";
+                    }
 
-		    if ( !defined $codeMessages{$thisFile} )
-		    {
-			$codeMessages{$thisFile} = {};
-		    }
-		    if ( !defined $codeMessages{$thisFile}{$line} )
-		    {
-			$codeMessages{$thisFile}{$line} = {
-			    category => 'coverage',
-			    coverage => $tag,
-			    message  => $prefix
-				. extractEntity( $_, $tag eq "function" )
-				. $suffix
-			    };
-		    }
-		    elsif ( $codeMessages{$thisFile}{$line}{coverage}
-			    =~ m/function/o
-			    && $tag eq "e" )
-		    {
-			# don't re-enter the info for the function itself
-		    }
-		    else
-		    {
-			$codeMessages{$thisFile}{$line}{coverage} .= $tag;
-			$codeMessages{$thisFile}{$line}{message} .= "  "
-			    . $prefix
-			    . extractEntity( $_ )
-			    . $suffix;
-		    }
-		}
-	    }
-	    close( COVERAGE );
-	}
+                    if ( !defined $codeMessages{$thisFile} )
+                    {
+                        $codeMessages{$thisFile} = {};
+                    }
+                    if ( !defined $codeMessages{$thisFile}{$line} )
+                    {
+                        $codeMessages{$thisFile}{$line} = {
+                            category => 'coverage',
+                            coverage => $tag,
+                            message  => $prefix
+                                . extractEntity( $_, $tag eq "function" )
+                                . $suffix
+                            };
+                    }
+                    elsif ( $codeMessages{$thisFile}{$line}{coverage}
+                            =~ m/function/o
+                            && $tag eq "e" )
+                    {
+                        # don't re-enter the info for the function itself
+                    }
+                    else
+                    {
+                        $codeMessages{$thisFile}{$line}{coverage} .= $tag;
+                        $codeMessages{$thisFile}{$line}{message} .= "  "
+                            . $prefix
+                            . extractEntity( $_ )
+                            . $suffix;
+                    }
+                }
+            }
+            close( COVERAGE );
+        }
     }
 }
 
@@ -1419,15 +1417,15 @@ if ( $debug > 3 )
     print "\n\ncode messages:\n--------------------\n";
     foreach my $f ( keys %codeMessages )
     {
-	print "$f:\n";
-	foreach my $line ( keys %{ $codeMessages{$f} } )
-	{
-	    print "    line $line:\n";
-	    foreach my $k ( keys %{ $codeMessages{$f}{$line} } )
-	    {
-	        print "        $k => ", $codeMessages{$f}{$line}{$k}, "\n";
-	    }
-	}
+        print "$f:\n";
+        foreach my $line ( keys %{ $codeMessages{$f} } )
+        {
+            print "    line $line:\n";
+            foreach my $k ( keys %{ $codeMessages{$f}{$line} } )
+            {
+                print "        $k => ", $codeMessages{$f}{$line}{$k}, "\n";
+            }
+        }
     }
 }
 
@@ -1446,37 +1444,37 @@ $studentTestMsgs
 EOF
     if ( $testsRun > 0 )
     {
-	$feedbackGenerator->print( "<p><b>Test Pass Rate: " );
-	if ( $studentCasesPercent < 100 )
-	{
-	    $feedbackGenerator->print(
-	        "<font color=\"#ee00bb\">$studentCasesPercent%</font>" );
-	}
-	else
-	{
-	    $feedbackGenerator->print( "$studentCasesPercent%" );
-	}
-	$feedbackGenerator->print( "</b></p>\n" );
+        $feedbackGenerator->print( "<p><b>Test Pass Rate: " );
+        if ( $studentCasesPercent < 100 )
+        {
+            $feedbackGenerator->print(
+                "<font color=\"#ee00bb\">$studentCasesPercent%</font>" );
+        }
+        else
+        {
+            $feedbackGenerator->print( "$studentCasesPercent%" );
+        }
+        $feedbackGenerator->print( "</b></p>\n" );
     }
     if ( $coverageMetric && $gradedElements > 0 )
     {
-	$feedbackGenerator->print( "<p><b>Code Coverage: " );
-	if ( $codeCoveragePercent < 100 )
-	{
-	    $feedbackGenerator->print(
-		"<font color=\"#ee00bb\">$codeCoveragePercent%</font>" );
-	}
-	else
-	{
-	    $feedbackGenerator->print( "$codeCoveragePercent%" );
-	}
-	my $descr =
-	    $cfg->getProperty( "statElementsLabel", "Methods Executed" );
-	$descr =~ tr/A-Z/a-z/;
-	$descr =~ s/\s*executed\s*$//;
-	$feedbackGenerator->print(
-	    "</b> (percentage of $descr exercised by your tests)</p>\n" );
-	$feedbackGenerator->print( <<EOF );
+        $feedbackGenerator->print( "<p><b>Code Coverage: " );
+        if ( $codeCoveragePercent < 100 )
+        {
+            $feedbackGenerator->print(
+                "<font color=\"#ee00bb\">$codeCoveragePercent%</font>" );
+        }
+        else
+        {
+            $feedbackGenerator->print( "$codeCoveragePercent%" );
+        }
+        my $descr =
+            $cfg->getProperty( "statElementsLabel", "Methods Executed" );
+        $descr =~ tr/A-Z/a-z/;
+        $descr =~ s/\s*executed\s*$//;
+        $feedbackGenerator->print(
+            "</b> (percentage of $descr exercised by your tests)</p>\n" );
+        $feedbackGenerator->print( <<EOF );
 <p>You can improve your testing by looking for any
 <span style="background-color:#F0C8C8">lines highlighted in this color</span>
 in your code listings above.  Such lines have not been sufficiently
@@ -1509,13 +1507,13 @@ if ( $can_proceed )
 {
     my $scoreToTenths = int( $runtimeScore * 10 + 0.5 ) / 10;
     if ( $instructorTestsRun == 0
-	 || $instructorTestsFailed == $instructorTestsRun )
+         || $instructorTestsFailed == $instructorTestsRun )
     {
-	$instructorCasesPercent = "<font color=\"#ee00bb\">unknown</font>";
+        $instructorCasesPercent = "<font color=\"#ee00bb\">unknown</font>";
     }
     else
     {
-	$instructorCasesPercent = "$instructorCasesPercent%";
+        $instructorCasesPercent = "$instructorCasesPercent%";
     }
     my $feedbackGenerator = new Web_CAT::FeedbackGenerator( $explanation );
     $feedbackGenerator->startFeedbackSection( "Interpreting Your Score" );
@@ -1543,7 +1541,7 @@ EOF
 EOF
     if ( $coverageMetric )
     {
-	$feedbackGenerator->print( " * $codeCoveragePercent% " );
+        $feedbackGenerator->print( " * $codeCoveragePercent% " );
     }
     $feedbackGenerator->print( <<EOF );
 * $instructorCasesPercent = $scoreToTenths</p>
@@ -1564,9 +1562,9 @@ EOF
 
 my $beautifier = new Web_CAT::Beautifier;
 $beautifier->beautifyCwd( $cfg,
-			  [ 'runAllTests.cpp' ],
-			  \%codeMarkupIds,
-			  \%codeMessages );
+                          [ 'runAllTests.cpp' ],
+                          \%codeMarkupIds,
+                          \%codeMessages );
 
 
 #=============================================================================
@@ -1600,7 +1598,7 @@ if ( $debug )
     my $props = $cfg->getProperties();
     while ( ( my $key, my $value ) = each %{$props} )
     {
-	print $key, " => ", $value, "\n";
+        print $key, " => ", $value, "\n";
     }
 }
 

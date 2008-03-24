@@ -1,9 +1,9 @@
 {
     name             = CppTddPlugin;
     version.major    = 2;
-    version.minor    = 2;
-    version.revision = 1;
-    version.date     = 20070204;
+    version.minor    = 3;
+    version.revision = 0;
+    version.date     = 20080323;
     autoPublish      = true;
     requires         = ( ANTForPlugins, PerlForPlugins );
     provider         = "Virginia Tech Computer Science";

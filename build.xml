@@ -20,10 +20,15 @@
     description="Build a distributable jar file for this plug-in">
     <property file="Properties"/>
     <jar destfile="../../${ant.project.name}_${version.major}.${version.minor}.${version.revision}.jar">
-      <fileset dir="src"/>
+      <fileset dir="src">
+        <exclude name="obj/*.o"/>
+        <exclude name="libempty.a"/>
+      </fileset>
       <fileset dir="${cxxtest.framework.dir}">
           <include name="cxxtest/"/>
-      </fileset>   
+      </fileset>
+      <zipfileset dir="${cxxtest.bfd.dir}/symreader-src" prefix="bfd/"/>
+      <zipfileset dir="${cxxtest.macosx.dir}/lib" prefix="mac/"/>
     </jar>
   </target>
 
