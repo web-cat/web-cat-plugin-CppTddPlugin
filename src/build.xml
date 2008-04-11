@@ -62,6 +62,8 @@
     <!-- Build OS-specific binary files, if necessary -->
     <target name="assert.o" unless="has.assert.o">
       <cc name="gcc" objdir="${scriptHome}/obj">
+        <compilerarg value="-c"/>
+        <compilerarg value="-w"/>
         <compilerarg value="-O0"/>
         <compilerarg value="-g3"/>
         <fileset dir="${scriptHome}/obj" includes="*.c"/>
