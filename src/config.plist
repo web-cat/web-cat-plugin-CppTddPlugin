@@ -8,8 +8,8 @@
     requires         = ( ANTForPlugins, PerlForPlugins );
     provider         = "Virginia Tech Computer Science";
     provider.url     = "http://web-cat.cs.vt.edu/updates";
-    license          = "GNU General Public License v.2";
-    license.url      = "http://www.gnu.org/copyleft/gpl.html";
+    license          = "GNU Affero General Public License v.3";
+    license.url      = "http://www.gnu.org/licenses/agpl.html";
     copyright        = "(c) 2006 Virginia Tech Department of Computer Science";
     info.url         = "http://web-cat.cs.vt.edu/WCWiki/CppTddPlugin";
     history.url      = "http://web-cat.cs.vt.edu/WCWiki/CppTddPlugin/ChangeHistory";
