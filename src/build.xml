@@ -225,7 +225,7 @@
                    if="assignmentLib.abs"/>
         <linkerarg location="end" value ="${generalLib.abs}"
                    if="generalLib.abs"/>
-        <linkerarg location="end" value ="${bullseye.lib}"/>
+        <linkerarg location="end" value ="${bullseye.lib}" if="bullseye.lib"/>
         <linkerarg location="start" value ="-F/System/Library/PrivateFrameworks"
           if="is.mac"/>
         <linkerarg location="start" value ="-framework" if="is.mac"/>
