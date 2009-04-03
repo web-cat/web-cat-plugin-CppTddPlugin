@@ -27,6 +27,15 @@
     <condition property="is.mac">
         <os family="mac"/>
     </condition>
+	<condition property="is.win">
+	    <os family="windows"/>
+	</condition>
+	<condition property="is.other">
+	    <and>
+		  <not><isset property="is.mac"/></not>
+	      <not><isset property="is.win"/></not>
+		</and>
+	</condition>
     <available property="has.assert.o" file="${scriptHome}/obj/assert.o"/>
 
     <!-- Check for Bullseye presence. -->
@@ -52,11 +61,18 @@
         value=",objc,symreader"/>
     </target>
 
-    <target name="nonmac.properties" unless="is.mac">
+    <target name="win.properties" if="is.win">
         <property name="cxxtest.symreader.dir"
           value="${cxxtest.dir}${file.separator}bfd"/>
         <property name="cxxtest.extra.libs"
           value=",bfd,iberty,intl"/>
+    </target>
+
+    <target name="nonmac.nonwin.properties" if="is.other">
+        <property name="cxxtest.symreader.dir"
+          value="${cxxtest.dir}${file.separator}bfd"/>
+        <property name="cxxtest.extra.libs"
+          value=",bfd,iberty"/>
     </target>
 
     <!-- Build OS-specific binary files, if necessary -->
@@ -72,7 +88,7 @@
 
     <!-- Make sure all initial setup is performed correctly. -->
     <target name="init"
-      depends="bullseye.properties,mac.properties,nonmac.properties,assert.o"
+      depends="bullseye.properties,mac.properties,win.properties,nonmac.nonwin.properties,assert.o"
       description="Initialize necessary properties"/>
 
 
@@ -297,8 +313,8 @@
         <compilerarg value="-finstrument-functions"/>
         <compilerarg value="-DCXXTEST_INCLUDE_SYMREADER_DIRECTLY"
           unless="is.mac"/>
-        <compilerarg value='"-DHINT_PREFIX=\"hint: \""'/>
-        <compilerarg value='"-DMW_PREFIX=\"/=MEMWATCH=/: \""'/>
+        <compilerarg value="-DHINT_PREFIX=&quot;hint: &quot;"/>
+        <compilerarg value="-DMW_PREFIX=&quot;/=MEMWATCH=/: &quot;"/>
         <includepath location="${cxxtest.dir}"/>
         <includepath location="${cxxtest.symreader.dir}"
           unless="is.mac"/>
