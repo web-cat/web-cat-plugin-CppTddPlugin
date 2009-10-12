@@ -18,11 +18,14 @@ use File::stat;
 use Proc::Background;
 use Config::Properties::Simple;
 use Web_CAT::Beautifier;
+use Web_CAT::CLOC;
 use Web_CAT::FeedbackGenerator;
+use Web_CAT::JUnitResultsReader;
+use Web_CAT::DerefereeStatsReader;
 use Web_CAT::Utilities;
 use Text::Tabs;
 use XML::Smart;
-#use Data::Dump qw( dump );
+use Data::Dump qw( dump );
 
 die "ANT_HOME environment variable is not set"
     if !defined( $ENV{ANT_HOME} );
@@ -45,6 +48,13 @@ my $reportCount = $cfg->getProperty( 'numReports', 0 );
 my $maxCorrectnessScore   = $cfg->getProperty( 'max.score.correctness' );
 my $maxToolScore          = $cfg->getProperty( 'max.score.tools', 0 );
 my $NTprojdir             = $working_dir . "/";
+
+my %status = (
+    'studentTestResults'    => undef,
+    'instrTestResults'      => undef,
+    'studentDerefereeStats' => undef,
+    'instrDerefereeStats'   => undef,
+);
 
 
 #-------------------------------------------------------
@@ -979,6 +989,18 @@ EOF
             $can_proceed = 0;
         }
     }
+
+    #
+    # Collect student and instructor results from the plist printer
+    #
+    $status{'studentTestResults'} =
+        new Web_CAT::JUnitResultsReader( "$log_dir/student.inc" );
+    $status{'instrTestResults'} =
+        new Web_CAT::JUnitResultsReader( "$log_dir/instr.inc" );
+    $status{'studentDerefereeStats'} =
+        new Web_CAT::DerefereeStatsReader( "$log_dir/student-dereferee.inc" );
+    $status{'instrDerefereeStats'} =
+        new Web_CAT::DerefereeStatsReader( "$log_dir/instr-dereferee.inc" );
 }
 elsif ( $debug ) { print "instructor test results analysis skipped\n"; }
 
@@ -1500,6 +1522,93 @@ if ( -f $instrLog && stat( $instrLog )->size > 0 )
 }
 
 
+if ( defined $status{'studentTestResults'}
+     && $status{'studentTestResults'}->hasResults )
+{
+    $cfg->setProperty('student.test.results',
+                      $status{'studentTestResults'}->plist);
+    $cfg->setProperty('student.test.executed',
+                      $status{'studentTestResults'}->testsExecuted);
+    $cfg->setProperty('student.test.passed',
+                      $status{'studentTestResults'}->testsExecuted
+                      - $status{'studentTestResults'}->testsFailed);
+    $cfg->setProperty('student.test.failed',
+                      $status{'studentTestResults'}->testsFailed);
+    $cfg->setProperty('student.test.passRate',
+                      $status{'studentTestResults'}->testPassRate);
+    $cfg->setProperty('student.test.allPass',
+                      $status{'studentTestResults'}->allTestsPass);
+    $cfg->setProperty('student.test.allFail',
+                      $status{'studentTestResults'}->allTestsFail);
+}
+if ( defined $status{'instrTestResults'}
+     && $status{'instrTestResults'}->hasResults )
+{
+    $cfg->setProperty('instructor.test.results',
+                      $status{'instrTestResults'}->plist);
+    $cfg->setProperty('instructor.test.executed',
+                      $status{'instrTestResults'}->testsExecuted);
+    $cfg->setProperty('instructor.test.passed',
+                      $status{'instrTestResults'}->testsExecuted
+                      - $status{'instrTestResults'}->testsFailed);
+    $cfg->setProperty('instructor.test.failed',
+                      $status{'instrTestResults'}->testsFailed);
+    $cfg->setProperty('instructor.test.passRate',
+                      $status{'instrTestResults'}->testPassRate);
+    $cfg->setProperty('instructor.test.allPass',
+                      $status{'instrTestResults'}->allTestsPass);
+    $cfg->setProperty('instructor.test.allFail',
+                      $status{'instrTestResults'}->allTestsFail);
+}
+if ( defined $status{'studentDerefereeStats'}
+     && $status{'studentDerefereeStats'}->hasResults )
+{
+    $cfg->setProperty('student.memory.numLeaks',
+                      $status{'studentDerefereeStats'}->numLeaks);
+    $cfg->setProperty('student.memory.leakRate',
+                      $status{'studentDerefereeStats'}->leakRate);
+    $cfg->setProperty('student.memory.totalBytesAllocated',
+                      $status{'studentDerefereeStats'}->totalMemoryAllocated);
+    $cfg->setProperty('student.memory.maxBytesInUse',
+                      $status{'studentDerefereeStats'}->maxMemoryInUse);
+    $cfg->setProperty('student.memory.numCallsToNew',
+                      $status{'studentDerefereeStats'}->numCallsToNew);
+    $cfg->setProperty('student.memory.numCallsToDelete',
+                      $status{'studentDerefereeStats'}->numCallsToDelete);
+    $cfg->setProperty('student.memory.numCallsToArrayNew',
+                      $status{'studentDerefereeStats'}->numCallsToArrayNew);
+    $cfg->setProperty('student.memory.numCallsToArrayDelete',
+                      $status{'studentDerefereeStats'}->numCallsToArrayDelete);
+    $cfg->setProperty('student.memory.numCallsToDeleteNull',
+                      $status{'studentDerefereeStats'}->numCallsToDeleteNull);
+}
+if ( defined $status{'instrDerefereeStats'}
+     && $status{'instrDerefereeStats'}->hasResults )
+{
+    $cfg->setProperty('instructor.memory.numLeaks',
+                      $status{'instrDerefereeStats'}->numLeaks);
+    $cfg->setProperty('instructor.memory.leakRate',
+                      $status{'instrDerefereeStats'}->leakRate);
+    $cfg->setProperty('instructor.memory.totalBytesAllocated',
+                      $status{'instrDerefereeStats'}->totalMemoryAllocated);
+    $cfg->setProperty('instructor.memory.maxBytesInUse',
+                      $status{'instrDerefereeStats'}->maxMemoryInUse);
+    $cfg->setProperty('instructor.memory.numCallsToNew',
+                      $status{'instrDerefereeStats'}->numCallsToNew);
+    $cfg->setProperty('instructor.memory.numCallsToDelete',
+                      $status{'instrDerefereeStats'}->numCallsToDelete);
+    $cfg->setProperty('instructor.memory.numCallsToArrayNew',
+                      $status{'instrDerefereeStats'}->numCallsToArrayNew);
+    $cfg->setProperty('instructor.memory.numCallsToArrayDelete',
+                      $status{'instrDerefereeStats'}->numCallsToArrayDelete);
+    $cfg->setProperty('instructor.memory.numCallsToDeleteNull',
+                      $status{'instrDerefereeStats'}->numCallsToDeleteNull);
+}
+
+$cfg->setProperty('outcomeProperties',
+                  '("instructor.test.results", "student.test.results")');
+
+
 #=============================================================================
 # generate score explanation for student
 #=============================================================================
@@ -1565,6 +1674,43 @@ $beautifier->beautifyCwd( $cfg,
                           [ 'runAllTests.cpp' ],
                           \%codeMarkupIds,
                           \%codeMessages );
+
+
+#=============================================================================
+# Use CLOC to calculate lines of code statistics
+#=============================================================================
+
+my @cloc_files = ();
+my $numCodeMarkups = $cfg->getProperty( 'numCodeMarkups', 0 );
+
+for (my $i = 1; $i <= $numCodeMarkups; $i++)
+{
+	my $cloc_file = $cfg->getProperty(
+	    "codeMarkup${i}.sourceFileName", undef);
+
+	push @cloc_files, $cloc_file if defined $cloc_file;
+}
+
+print "Passing these files to CLOC: @cloc_files\n" if ( $debug > 2 );
+
+my $cloc = new Web_CAT::CLOC;
+$cloc->execute(@cloc_files);
+
+for (my $i = 1; $i <= $numCodeMarkups; $i++)
+{
+	my $cloc_file = $cfg->getProperty(
+	    "codeMarkup${i}.sourceFileName", undef);
+
+	my $cloc_metrics = $cloc->fileMetrics($cloc_file);
+	next unless defined $cloc_metrics;
+	
+    $cfg->setProperty(
+        "codeMarkup${i}.loc",
+        $cloc_metrics->{blank} + $cloc_metrics->{comment} + $cloc_metrics->{code} );
+    $cfg->setProperty(
+        "codeMarkup${i}.ncloc",
+        $cloc_metrics->{blank} + $cloc_metrics->{code} );
+}
 
 
 #=============================================================================

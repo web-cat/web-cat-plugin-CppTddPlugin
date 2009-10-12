@@ -6,14 +6,16 @@
 
     <property environment="env"/>
     <property name="build"  value="${resultDir}/bin"/>
-    <property name="student.tests" value="${build}/runStudentTests.exe"/>
-    <property name="instructor.tests" value="${build}/runInstructorTests.exe"/>
+    <property name="student.tests" value="${build}/runStudentTests"/>
+    <property name="instructor.tests" value="${build}/runInstructorTests"/>
     <property name="exec.timeout" value="10000"/>
-    <property name="cxxtest.dir" location="${scriptHome}/cxxtest"/>
+    <property name="cxxtest.basedir" location="${scriptHome}/cxxtest"/>
+    <property name="cxxtest.includedir" location="${cxxtest.basedir}/include"/>
     <property name="testCasePath" location="${scriptHome}/tests"/>
     <property name="testCasePattern" value="**/*.h"/>
     <property name="covfile" value="${env.COVFILE}"/>
-
+    <property name="quote" value="&quot;"/>
+	
     <taskdef resource="cpptasks.tasks"/>
     <typedef resource="cpptasks.types"/>
 
@@ -55,24 +57,30 @@
 
     <!-- Set OS-specific property values -->
     <target name="mac.properties" if="is.mac">
-      <property name="cxxtest.symreader.dir"
-        value="${cxxtest.dir}/mac"/>
       <property name="cxxtest.extra.libs"
-        value=",objc,symreader"/>
+        value=""/>
+      <property name="cxxtest.debug.flag"
+        value="-gstabs"/>
+      <property name="cxxtest.dereferee.platform"
+        value="gcc_macosx_platform"/>
     </target>
 
     <target name="win.properties" if="is.win">
-        <property name="cxxtest.symreader.dir"
-          value="${cxxtest.dir}${file.separator}bfd"/>
         <property name="cxxtest.extra.libs"
           value=",bfd,iberty,intl"/>
+        <property name="cxxtest.debug.flag"
+          value="-g3"/>
+        <property name="cxxtest.dereferee.platform"
+          value="gcc_bfd_platform"/>
     </target>
 
     <target name="nonmac.nonwin.properties" if="is.other">
-        <property name="cxxtest.symreader.dir"
-          value="${cxxtest.dir}${file.separator}bfd"/>
         <property name="cxxtest.extra.libs"
           value=",bfd,iberty"/>
+        <property name="cxxtest.debug.flag"
+          value="-g3"/>
+        <property name="cxxtest.dereferee.platform"
+          value="gcc_bfd_platform"/>
     </target>
 
     <!-- Build OS-specific binary files, if necessary -->
@@ -81,7 +89,7 @@
         <compilerarg value="-c"/>
         <compilerarg value="-w"/>
         <compilerarg value="-O0"/>
-        <compilerarg value="-g3"/>
+        <compilerarg value="${cxxtest.debug.flag}"/>
         <fileset dir="${scriptHome}/obj" includes="*.c"/>
       </cc>
     </target>
@@ -104,7 +112,6 @@
         message="timeout = ${exec.timeout} (for each of two test runs)"/>
     <echo message="env.COVFILE = ${env.COVFILE}"/>
     <echo message="env.Path = ${env.Path}"/>
-    <echo message="cxxtest.symreader.dir = ${cxxtest.symreader.dir}"/>
     <delete includeEmptyDirs="true">
         <fileset dir="${resultDir}" casesensitive="false">
         <include name="bin/"/>
@@ -125,26 +132,21 @@
 
     <target name="generateStudentMain"
         description="generate runStudentTests.cpp from student's tests">
-    <apply executable="perl"
+    <apply executable="java"
            failonerror="true"
            parallel="true"
            skipemptyfilesets="true"
            forwardslash="true"
            >
-        <arg value="${cxxtest.dir}/cxxtestgen.pl"/>
-        <arg value="--error-printer"/>
-        <arg value="--force-main"/>
-        <arg value="--track-heap"/>
-        <arg value="--trap-signals"/>
-        <arg value="--trace-stack"/>
-        <!--arg value="- -stack-trace-exe=${student.tests}"/-->
-        <arg value="--have-eh"/>
-        <arg value="--abort-on-fail"/>
-        <arg value="--no-static-init"/>
-    <!-- <arg value="- -ErrorPrinterFile=${resultDir}/student.raw"/> -->
+        <arg value="-jar"/>
+        <arg file="${cxxtest.basedir}/cxxtestgen.jar"/>
+        <arg value="--listener=ErrorPrinter"/>
+        <arg value="--listener=WebCATPlistListener"/>
+        <arg value="--backtrace"/>
+        <arg value="--dereferee-platform=${cxxtest.dereferee.platform}"/>
+        <arg value="--dereferee-listener=cxxtest_listener"/>
         <arg value="-o"/>
-        <arg value="${build}/runStudentTests.cpp"/>
-        <!-- arg value="test-cases/*.h"/ -->
+        <arg file="${build}/runStudentTests.cpp"/>
         <fileset dir="." casesensitive="no">
             <include name="**/*.h"/>
         </fileset>
@@ -154,23 +156,19 @@
 
     <target name="generateInstructorMain"
     description="generate runInstructorTests.cpp from instructor's tests">
-    <apply executable="perl"
+    <apply executable="java"
            failonerror="true"
            parallel="true"
            skipemptyfilesets="true"
            forwardslash="true"
            >
-        <arg file="${cxxtest.dir}/cxxtestgen.pl"/>
-        <arg value="--error-printer"/>
-        <arg value="--force-main"/>
-        <arg value="--track-heap"/>
-        <arg value="--trap-signals"/>
-        <arg value="--trace-stack"/>
-        <!--arg value="- -stack-trace-exe=${instructor.tests}"/-->
-        <arg value="--have-eh"/>
-        <arg value="--abort-on-fail"/>
-        <arg value="--no-static-init"/>
-    <!--<arg value="- -ErrorPrinterFile=${resultDir}/instructor.raw"/>-->
+        <arg value="-jar"/>
+        <arg file="${cxxtest.basedir}/cxxtestgen.jar"/>
+        <arg value="--listener=ErrorPrinter"/>
+        <arg value="--listener=WebCATPlistListener"/>
+        <arg value="--backtrace"/>
+        <arg value="--dereferee-platform=${cxxtest.dereferee.platform}"/>
+        <arg value="--dereferee-listener=cxxtest_listener"/>
         <arg value="-o"/>
         <arg file="${build}/runInstructorTests.cpp"/>
         <fileset dir="${testCasePath}" casesensitive="no">
@@ -206,20 +204,17 @@
     <cc    name="g++"
            objdir="${build}"
            outfile="${student.tests}"
+           outputfileproperty="student.tests.actual"
            outtype="executable"
            rebuild="true"
            relentless="true"
            >
         <compilerarg value="-O0"/>
-        <compilerarg value="-g3"/>
+        <compilerarg value="${cxxtest.debug.flag}"/>
         <compilerarg value="-Wall"/>
         <compilerarg value="-fnon-call-exceptions"/>
         <compilerarg value="-finstrument-functions"/>
-        <compilerarg value="-DCXXTEST_INCLUDE_SYMREADER_DIRECTLY"
-          unless="is.mac"/>
-        <includepath location="${cxxtest.dir}"/>
-        <includepath location="${cxxtest.symreader.dir}"
-          unless="is.mac"/>
+        <includepath location="${cxxtest.includedir}"/>
         <includepath location="${basedir}"/>
         <includepath location="${assignmentIncludes.abs}"
                      if="assignmentIncludes.abs"/>
@@ -242,12 +237,6 @@
         <linkerarg location="end" value ="${generalLib.abs}"
                    if="generalLib.abs"/>
         <linkerarg location="end" value ="${bullseye.lib}" if="bullseye.lib"/>
-        <linkerarg location="start" value ="-F/System/Library/PrivateFrameworks"
-          if="is.mac"/>
-        <linkerarg location="start" value ="-framework" if="is.mac"/>
-        <linkerarg location="start" value ="vmutils" if="is.mac"/>
-        <linkerarg location="start" value ="-L${cxxtest.symreader.dir}"
-          if="is.mac"/>
         <libset libs="stdc++${cxxtest.extra.libs}"/>
     </cc>
     </target>
@@ -256,9 +245,12 @@
     <target name="run.student.tests"
         depends="compile"
         description="run student's test cases">
-    <exec executable="${student.tests}"
+    <exec executable="${student.tests.actual}"
           timeout="${exec.timeout}">
-        <env key="CXXTEST_EXE_PATH" value="${student.tests}"/>
+    	<env key="WEBCAT_PLIST_FRAGMENT_PATH"
+             file="${resultDir}/student.inc"/>
+    	<env key="DEREFEREE_LISTENER_OPTIONS"
+    	     value="webcat.stats.path=${resultDir}/student-dereferee.inc;max.leaks.to.report=20"/>
     </exec>
     </target>
 
@@ -272,23 +264,20 @@
         <arg value="-c"/>
         <arg value="-k"/>
         <arg value="!${resultDir}"/>
-        <arg value="!${cxxtest.dir}"/>
-        <arg value="!${cxxtest.symreader.dir}"/>
+        <arg value="!${cxxtest.includedir}"/>
     </exec>
     <exec executable="covbr" output="${resultDir}/covfunc.out">
         <arg value="-q"/>
         <arg value="--csv"/>
         <arg value="!${resultDir}"/>
-        <arg value="!${cxxtest.dir}"/>
-        <arg value="!${cxxtest.symreader.dir}"/>
+        <arg value="!${cxxtest.includedir}"/>
     </exec>
     <exec executable="covbr" output="${resultDir}/covsrc.out">
             <arg value="-q"/>
         <arg value="-c0"/>
         <arg value="-w500"/>
         <arg value="!${resultDir}"/>
-        <arg value="!${cxxtest.dir}"/>
-        <arg value="!${cxxtest.symreader.dir}"/>
+        <arg value="!${cxxtest.includedir}"/>
     </exec>
     <exec executable="cov01">
         <arg value="-q"/>
@@ -305,19 +294,16 @@
     <cc    name="g++"
            objdir="${build}"
            outfile="${instructor.tests}"
+    	   outputfileproperty="instructor.tests.actual"
            outtype="executable"
            >
         <compilerarg value="-O0"/>
-        <compilerarg value="-g3"/>
+        <compilerarg value="${cxxtest.debug.flag}"/>
         <compilerarg value="-fnon-call-exceptions"/>
         <compilerarg value="-finstrument-functions"/>
-        <compilerarg value="-DCXXTEST_INCLUDE_SYMREADER_DIRECTLY"
-          unless="is.mac"/>
-        <compilerarg value="-DHINT_PREFIX=&quot;hint: &quot;"/>
-        <compilerarg value="-DMW_PREFIX=&quot;/=MEMWATCH=/: &quot;"/>
-        <includepath location="${cxxtest.dir}"/>
-        <includepath location="${cxxtest.symreader.dir}"
-          unless="is.mac"/>
+        <compilerarg value="-DHINT_PREFIX=${quote}hint: ${quote}"/>
+        <!-- compilerarg value="-DMW_PREFIX=${quote}/=MEMWATCH=/: ${quote}"/ -->
+        <includepath location="${cxxtest.includedir}"/>
         <includepath location="${basedir}"/>
         <includepath location="${assignmentIncludes.abs}"
                      if="assignmentIncludes.abs"/>
@@ -348,9 +334,12 @@
     <target name="instructorTest"
         depends="compileInstructorTests"
         description="run instructor's test cases">
-    <exec executable="${instructor.tests}"
+    <exec executable="${instructor.tests.actual}"
           timeout="${exec.timeout}">
-        <env key="CXXTEST_EXE_PATH" value="${instructor.tests}"/>
+    	<env key="WEBCAT_PLIST_FRAGMENT_PATH"
+             file="${resultDir}/instr.inc"/>
+    	<env key="DEREFEREE_LISTENER_OPTIONS"
+    	     value="webcat.stats.path=${resultDir}/instr-dereferee.inc;max.leaks.to.report=20"/>
     </exec>
     </target>
 
