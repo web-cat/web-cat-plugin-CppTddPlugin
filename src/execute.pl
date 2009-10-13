@@ -119,12 +119,12 @@ my @beautifierIgnoreFiles = ();
 
 $ENV{'COVFILE'} = $covfile;
 
-$bullseyeDir = $cfg->getProperty( 'bullseyeDir' );
-$pathSep = $cfg->getProperty( 'PerlForPlugins.path.separator', ':' );
+my $bullseyeDir = $cfg->getProperty( 'bullseyeDir' );
+my $pathSep = $cfg->getProperty( 'PerlForPlugins.path.separator', ':' );
 
 if ( defined $bullseyeDir )
 {
-	$ENV{'PATH'} = $bullseyeDir . $pathSep . $ENV{'PATH'}
+	$ENV{'PATH'} = $bullseyeDir . '/bin' . $pathSep . $ENV{'PATH'}
 }
 
 

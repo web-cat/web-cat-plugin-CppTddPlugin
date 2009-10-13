@@ -145,6 +145,7 @@
         <arg value="--backtrace"/>
         <arg value="--dereferee-platform=${cxxtest.dereferee.platform}"/>
         <arg value="--dereferee-listener=cxxtest_listener"/>
+        <arg value="--include-dereferee"/>
         <arg value="-o"/>
         <arg file="${build}/runStudentTests.cpp"/>
         <fileset dir="." casesensitive="no">
@@ -169,6 +170,7 @@
         <arg value="--backtrace"/>
         <arg value="--dereferee-platform=${cxxtest.dereferee.platform}"/>
         <arg value="--dereferee-listener=cxxtest_listener"/>
+        <arg value="--include-dereferee"/>
         <arg value="-o"/>
         <arg file="${build}/runInstructorTests.cpp"/>
         <fileset dir="${testCasePath}" casesensitive="no">
