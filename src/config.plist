@@ -17,7 +17,7 @@
     interpreter.prefix = "${PerlForPlugins.perl.exe}";
     author     = "Stephen Edwards (edwards@cs.vt.edu)";
     authorUid  = edwards;
-    languages  = ( { name = "C++"; version = "g++ 3.4.x"; } );
+    languages  = ( { name = "C++"; version = "g++ 3.4.x/4.x"; } );
     description = "This is the standard C++ one-step grading script.
 It includes ANT-based compilation, CxxTest processing of student-written
 tests, and support for instructor-written reference tests.";
@@ -161,6 +161,22 @@ tests, and support for instructor-written reference tests.";
   files are deleted when a given submission has been completely processed.
   This setting is provided for debugging purposes, when one wishes to
   inspect the intermediate test driver source code or other derived files.";
+        }
+    );
+    globalOptions = (
+        {
+            property    = bullseyeDir;
+            type        = shortText;
+            size        = 40;
+            name        = "Bullseye Directory";
+            description =
+  "The directory on the local server that contains the Bullseye coverage
+  tool installation (this directory will contain the \"bin\", \"include\",
+  and \"lib\" directories for Bullseye, among others). If you do not have a
+  copy of Bullseye or wish to disable code coverage collection across all
+  assignments, you can leave this field blank. If you are not the user
+  administering this Web-CAT server, you will need to have your system
+  administrator install this tool and set this path if you wish to use it.";
         }
     );
 }

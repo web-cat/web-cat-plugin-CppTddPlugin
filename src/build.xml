@@ -43,8 +43,8 @@
     <!-- Check for Bullseye presence. -->
     <target name="bullseye.properties" unless="bullseye.lib">
       <available property="bullseye.lib"
-        value="c:/cygwin/BullseyeCoverage/lib/libcov.a"
-        file="c:/cygwin/BullseyeCoverage/lib/libcov.a"/>
+        value="${bullseyeDir}/lib/libcov.a"
+        file="${bullseyeDir}/lib/libcov.a"/>
       <condition property="turnOffCodeCoverage"><and>
         <isset property="disableCodeCoverage"/>
         <isset property="bullseye.lib"/>

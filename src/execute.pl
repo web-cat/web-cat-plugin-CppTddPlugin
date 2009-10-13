@@ -119,6 +119,14 @@ my @beautifierIgnoreFiles = ();
 
 $ENV{'COVFILE'} = $covfile;
 
+$bullseyeDir = $cfg->getProperty( 'bullseyeDir' );
+$pathSep = $cfg->getProperty( 'PerlForPlugins.path.separator', ':' );
+
+if ( defined $bullseyeDir )
+{
+	$ENV{'PATH'} = $bullseyeDir . $pathSep . $ENV{'PATH'}
+}
+
 
 #=============================================================================
 # Generate derived properties for ANT
