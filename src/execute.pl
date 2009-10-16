@@ -11,6 +11,7 @@
 use strict;
 use warnings;
 use Carp qw( carp croak );
+use Cwd qw( abs_path );
 use File::Basename;
 use File::Copy;
 use File::Spec;
@@ -124,7 +125,7 @@ my $pathSep = $cfg->getProperty( 'PerlForPlugins.path.separator', ':' );
 
 if ( defined $bullseyeDir )
 {
-	$ENV{'PATH'} = $bullseyeDir . '/bin' . $pathSep . $ENV{'PATH'}
+    $ENV{'PATH'} = $bullseyeDir . '/bin' . $pathSep . $ENV{'PATH'}
 }
 
 
@@ -240,28 +241,41 @@ my $testCasePattern = $cfg->getProperty( 'testCasePattern' );
 my $unixTestCasePath = $testCasePath;
 $unixTestCasePath =~ s,\\,/,g;
 
+sub regexize_path
+{
+    # transform a path to a suffix-finding RE like this:
+    # from: /a/b/c/d
+    # to: ((../)+|/)((((a/)?b/)?c/)?d/)
+
+    my $path = shift;
+
+    $path =~ m,^/?(.*)/?$,;
+    $path = $1;
+    my $result = "";
+
+    my @components = split( /\//, $path );
+    foreach my $i ( 0 .. $#components )
+    {
+        my $comp = $components[$i];
+        $result = "(" . $result . quotemeta($comp) . "/)";
+        $result .= "?" if ( $i < $#components );
+    }
+    
+    return $result;
+}
+
 sub sanitize_path
 {
-	# transform NTprojdir to a different RE like this:
-	# from: /a/b/c/d
-	# to: ((../)+|/)((((a/)?b/)?c/)?d/)?
+    my $path = shift;
 
-	my $path = shift;
+    my $workdir1 = regexize_path( $working_dir );
+    my $workdir2 = regexize_path( abs_path( $working_dir ) );
 
-	my $re = "((../)+|/)";
-	my $nesting = "";
-
-	my $components = split( $working_dir, '/' );
-	foreach my $comp ( $components )
-	{
-		$nesting = "(" . $nesting . "\\Q" . $comp . "\\E" . "/)?";
-	}
-
-	$re .= $nesting;
-	
-	$path =~ s,$re,,gi;
-	return $path;
+    my $re = "((\\.\\./)+|/)(" . $workdir1 . "|" . $workdir2 . ")";
+    $path =~ s,$re,,gi;
+    return $path;
 }
+
 
 sub prep_for_output
 {
@@ -419,8 +433,8 @@ if ( $callAnt )
         my $old_home = $ENV{'HOME'};
         $ENV{'HOME'} = $working_dir;
 
-        my ( $exitcode, $timeout_status ) = Proc::Background::timeout_syste$
-        $timeout - $postProcessingTime, $cmdline );
+        my ( $exitcode, $timeout_status ) = Proc::Background::timeout_system(
+                $timeout - $postProcessingTime, $cmdline );
 
         $ENV{'HOME'} = $old_home;
 
@@ -1258,7 +1272,8 @@ if ( $testsRun && $measureCodeCoverage )
                          || ( defined( $generalIncludes ) &&
                               $fqFileName =~ m/^\Q$generalIncludes\E/o )
                         );
-                $fqFileName =~ s,^\Q${working_dir}\E(/)*,,o;
+                #$fqFileName =~ s,^\Q${working_dir}\E(/)*,,o;
+                $fqFileName = sanitize_path( $fqFileName );
 
                 if ( $debug > 2 )
                 {
@@ -1340,7 +1355,8 @@ if ( $testsRun && $measureCodeCoverage )
                          || ( defined( $generalIncludes ) &&
                               $entry[0] =~ m/^\Q$generalIncludes\E/o )
                         );
-                $entry[0] =~ s,^\Q${working_dir}\E(/)*,,o;
+#                $entry[0] =~ s,^\Q${working_dir}\E(/)*,,o;
+                $entry[0] = sanitize_path( $entry[0] );
                 if ( $entry[3] eq "function" && $entry[4] eq "" )
                 {
                     if ( !defined $codeMessages{$entry[0]} )
@@ -1385,7 +1401,8 @@ if ( $testsRun && $measureCodeCoverage )
                     }
                     else
                     {
-                        $thisFile =~ s,^\Q${working_dir}\E(/)*,,o;
+                        #$thisFile =~ s,^\Q${working_dir}\E(/)*,,o;
+                        $thisFile = sanitize_path( $thisFile );
                     }
                     next;
                 }
@@ -1729,10 +1746,10 @@ my $numCodeMarkups = $cfg->getProperty( 'numCodeMarkups', 0 );
 
 for (my $i = 1; $i <= $numCodeMarkups; $i++)
 {
-	my $cloc_file = $cfg->getProperty(
-	    "codeMarkup${i}.sourceFileName", undef);
+    my $cloc_file = $cfg->getProperty(
+        "codeMarkup${i}.sourceFileName", undef);
 
-	push @cloc_files, $cloc_file if defined $cloc_file;
+    push @cloc_files, $cloc_file if defined $cloc_file;
 }
 
 print "Passing these files to CLOC: @cloc_files\n" if ( $debug > 2 );
@@ -1742,12 +1759,12 @@ $cloc->execute(@cloc_files);
 
 for (my $i = 1; $i <= $numCodeMarkups; $i++)
 {
-	my $cloc_file = $cfg->getProperty(
-	    "codeMarkup${i}.sourceFileName", undef);
+    my $cloc_file = $cfg->getProperty(
+        "codeMarkup${i}.sourceFileName", undef);
 
-	my $cloc_metrics = $cloc->fileMetrics($cloc_file);
-	next unless defined $cloc_metrics;
-	
+    my $cloc_metrics = $cloc->fileMetrics($cloc_file);
+    next unless defined $cloc_metrics;
+    
     $cfg->setProperty(
         "codeMarkup${i}.loc",
         $cloc_metrics->{blank} + $cloc_metrics->{comment} + $cloc_metrics->{code} );

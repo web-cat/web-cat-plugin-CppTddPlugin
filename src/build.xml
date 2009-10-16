@@ -15,7 +15,7 @@
     <property name="testCasePattern" value="**/*.h"/>
     <property name="covfile" value="${env.COVFILE}"/>
     <property name="quote" value="&quot;"/>
-	
+    
     <taskdef resource="cpptasks.tasks"/>
     <typedef resource="cpptasks.types"/>
 
@@ -29,15 +29,15 @@
     <condition property="is.mac">
         <os family="mac"/>
     </condition>
-	<condition property="is.win">
-	    <os family="windows"/>
-	</condition>
-	<condition property="is.other">
-	    <and>
-		  <not><isset property="is.mac"/></not>
-	      <not><isset property="is.win"/></not>
-		</and>
-	</condition>
+    <condition property="is.win">
+        <os family="windows"/>
+    </condition>
+    <condition property="is.other">
+        <and>
+          <not><isset property="is.mac"/></not>
+          <not><isset property="is.win"/></not>
+        </and>
+    </condition>
     <available property="has.assert.o" file="${scriptHome}/obj/assert.o"/>
 
     <!-- Check for Bullseye presence. -->
@@ -76,7 +76,7 @@
 
     <target name="nonmac.nonwin.properties" if="is.other">
         <property name="cxxtest.extra.libs"
-          value=",bfd,iberty"/>
+          value=",bfd,iberty,pthread"/>
         <property name="cxxtest.debug.flag"
           value="-g3"/>
         <property name="cxxtest.dereferee.platform"
@@ -249,10 +249,11 @@
         description="run student's test cases">
     <exec executable="${student.tests.actual}"
           timeout="${exec.timeout}">
-    	<env key="WEBCAT_PLIST_FRAGMENT_PATH"
+        <env key="WEBCAT_PLIST_FRAGMENT_PATH"
              file="${resultDir}/student.inc"/>
-    	<env key="DEREFEREE_LISTENER_OPTIONS"
-    	     value="webcat.stats.path=${resultDir}/student-dereferee.inc;max.leaks.to.report=20"/>
+        <env key="DEREFEREE_LISTENER_OPTIONS"
+             value="webcat.stats.path=${resultDir}/student-dereferee.inc;max.leaks.to.report=20"/>
+        <env key="MALLOC_CHECK_" value="0"/>
     </exec>
     </target>
 
@@ -296,7 +297,7 @@
     <cc    name="g++"
            objdir="${build}"
            outfile="${instructor.tests}"
-    	   outputfileproperty="instructor.tests.actual"
+           outputfileproperty="instructor.tests.actual"
            outtype="executable"
            >
         <compilerarg value="-O0"/>
@@ -338,10 +339,11 @@
         description="run instructor's test cases">
     <exec executable="${instructor.tests.actual}"
           timeout="${exec.timeout}">
-    	<env key="WEBCAT_PLIST_FRAGMENT_PATH"
+        <env key="WEBCAT_PLIST_FRAGMENT_PATH"
              file="${resultDir}/instr.inc"/>
-    	<env key="DEREFEREE_LISTENER_OPTIONS"
-    	     value="webcat.stats.path=${resultDir}/instr-dereferee.inc;max.leaks.to.report=20"/>
+        <env key="DEREFEREE_LISTENER_OPTIONS"
+             value="webcat.stats.path=${resultDir}/instr-dereferee.inc;max.leaks.to.report=20"/>
+    	<env key="MALLOC_CHECK_" value="0"/>
     </exec>
     </target>
 
