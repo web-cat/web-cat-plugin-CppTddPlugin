@@ -240,6 +240,29 @@ my $testCasePattern = $cfg->getProperty( 'testCasePattern' );
 my $unixTestCasePath = $testCasePath;
 $unixTestCasePath =~ s,\\,/,g;
 
+sub sanitize_path
+{
+	# transform NTprojdir to a different RE like this:
+	# from: /a/b/c/d
+	# to: ((../)+|/)((((a/)?b/)?c/)?d/)?
+
+	my $path = shift;
+
+	my $re = "((../)+|/)";
+	my $nesting = "";
+
+	my $components = split( $working_dir, '/' );
+	foreach my $comp ( $components )
+	{
+		$nesting = "(" . $nesting . "\\Q" . $comp . "\\E" . "/)?";
+	}
+
+	$re .= $nesting;
+	
+	$path =~ s,$re,,gi;
+	return $path;
+}
+
 sub prep_for_output
 {
     my $result = shift;
@@ -262,6 +285,7 @@ sub prep_for_output
     # print "\t4: $result";
     $result =~ s,([a-z]:)?\Q$NTprojdir\E(/)?,,gi;
     $result =~ s,([a-z]:)?\Q$DOSStyle_NTprojdir\E(/)?,,gi;
+    $result = sanitize_path( $result );
 
     $result =~ s,([a-z]:)?\Q$testCasePath\E(/)?[^:\s]*\.h,<<reference tests>>,gi;
     $result =~ s,([a-z]:)?\Q$testCasePath\E(/)?,,gi;
