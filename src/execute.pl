@@ -410,9 +410,21 @@ if ( $callAnt )
     print $cmdline, "\n" if ( $debug );
     if ( $useSpawn )
     {
-            my ( $exitcode, $timeout_status ) = Proc::Background::timeout_system(
-            $timeout - $postProcessingTime, $cmdline );
-    if ( $timeout_status )
+        # Changing the HOME directory is a hack to make Bullseye work
+        # correctly on Unix.  It tries to put a .BullseyeCoverage file in
+        # the user's home directory, and when running under Tomcat, this
+        # home dir might be the Tomcat root, which may not be writable.
+        # We change it here to the working directory while ant is running.
+
+        my $old_home = $ENV{'HOME'};
+        $ENV{'HOME'} = $working_dir;
+
+        my ( $exitcode, $timeout_status ) = Proc::Background::timeout_syste$
+        $timeout - $postProcessingTime, $cmdline );
+
+        $ENV{'HOME'} = $old_home;
+
+        if ( $timeout_status )
         {
             $can_proceed = 0;
             my $feedbackGenerator =
