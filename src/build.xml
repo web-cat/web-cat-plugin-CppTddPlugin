@@ -239,6 +239,8 @@
         <linkerarg location="end" value ="${generalLib.abs}"
                    if="generalLib.abs"/>
         <linkerarg location="end" value ="${bullseye.lib}" if="bullseye.lib"/>
+        <linkerarg location="end" value="--enable-auto-import"
+                   if="is.win"/>
         <libset libs="stdc++${cxxtest.extra.libs}"/>
     </cc>
     </target>
@@ -329,7 +331,9 @@
                    if="assignmentLib.abs"/>
         <linkerarg location="end" value ="${generalLib.abs}"
                    if="generalLib.abs"/>
-        <libset libs="stdc++${cxxtest.extra.libs}"/>
+        <linkerarg location="end" value="--enable-auto-import"
+                   if="is.win"/>
+    	<libset libs="stdc++${cxxtest.extra.libs}"/>
     </cc>
     </target>
 
