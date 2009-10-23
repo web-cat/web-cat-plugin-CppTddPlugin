@@ -1754,25 +1754,27 @@ for (my $i = 1; $i <= $numCodeMarkups; $i++)
 
 print "Passing these files to CLOC: @cloc_files\n" if ( $debug > 2 );
 
-my $cloc = new Web_CAT::CLOC;
-$cloc->execute(@cloc_files);
-
-for (my $i = 1; $i <= $numCodeMarkups; $i++)
+if (@cloc_files)
 {
-    my $cloc_file = $cfg->getProperty(
-        "codeMarkup${i}.sourceFileName", undef);
-
-    my $cloc_metrics = $cloc->fileMetrics($cloc_file);
-    next unless defined $cloc_metrics;
+    my $cloc = new Web_CAT::CLOC;
+    $cloc->execute(@cloc_files);
     
-    $cfg->setProperty(
-        "codeMarkup${i}.loc",
-        $cloc_metrics->{blank} + $cloc_metrics->{comment} + $cloc_metrics->{code} );
-    $cfg->setProperty(
-        "codeMarkup${i}.ncloc",
-        $cloc_metrics->{blank} + $cloc_metrics->{code} );
+    for (my $i = 1; $i <= $numCodeMarkups; $i++)
+    {
+        my $cloc_file = $cfg->getProperty(
+            "codeMarkup${i}.sourceFileName", undef);
+    
+        my $cloc_metrics = $cloc->fileMetrics($cloc_file);
+        next unless defined $cloc_metrics;
+        
+        $cfg->setProperty(
+            "codeMarkup${i}.loc",
+            $cloc_metrics->{blank} + $cloc_metrics->{comment} + $cloc_metrics->{code} );
+        $cfg->setProperty(
+            "codeMarkup${i}.ncloc",
+            $cloc_metrics->{blank} + $cloc_metrics->{code} );
+    }
 }
-
 
 #=============================================================================
 # Update and rewrite properties to reflect status
