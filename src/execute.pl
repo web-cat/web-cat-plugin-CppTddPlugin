@@ -11,7 +11,7 @@
 use strict;
 use warnings;
 use Carp qw( carp croak );
-use Cwd qw( abs_path );
+use Cwd qw( getcwd abs_path );
 use File::Basename;
 use File::Copy;
 use File::Spec;
@@ -260,20 +260,46 @@ sub regexize_path
         $result = "(" . $result . quotemeta($comp) . "/)";
         $result .= "?" if ( $i < $#components );
     }
-    
+
     return $result;
 }
 
 sub sanitize_path
 {
     my $path = shift;
+    my $dir1;
+    my $dir2;
+    my $re;
 
-    my $workdir1 = regexize_path( $working_dir );
-    my $workdir2 = regexize_path( abs_path( $working_dir ) );
-
-    my $re = "((\\.\\./)+|/)(" . $workdir1 . "|" . $workdir2 . ")";
+    $dir1 = regexize_path( $working_dir );
+    $dir2 = regexize_path( abs_path( $working_dir ) );
+    $re = "((\\.\\./)+|/)(" . $dir1 . "|" . $dir2 . ")";
     $path =~ s,$re,,gi;
+
     return $path;
+}
+
+sub path_contains_part_of_path
+{
+    my $path = shift;
+    my $destpath = shift;
+
+    my $dir1;
+    my $dir2;
+    my $re;
+
+    $dir1 = regexize_path( $destpath );
+    $dir2 = regexize_path( abs_path( $destpath ) );
+    $re = "((\\.\\./)+|/)(" . $dir1 . "|" . $dir2 . ")";
+
+    if ( $path =~ /$re/ )
+    {
+        return 1;
+    }
+    else
+    {
+        return 0;
+    }
 }
 
 
@@ -1200,6 +1226,52 @@ my %codeMarkupIds = ();
 # }
 my %codeMessages = ();
 
+sub exclude_from_coverage
+{
+    my $fqFileName = shift;
+
+    if ( $fqFileName =~ m,^\.\./, )
+    {
+        my $old_cwd = getcwd();
+        chdir $working_dir;
+        $fqFileName = abs_path( $fqFileName );
+        chdir $old_cwd;
+    }
+
+    if ( path_contains_part_of_path( $fqFileName, $scriptData )
+             || ( defined( $assignmentIncludes ) &&
+                  path_contains_part_of_path( $fqFileName, $assignmentIncludes ) )
+             || ( defined( $generalIncludes ) &&
+                  path_contains_part_of_path( $fqFileName, $generalIncludes) ) )
+    {
+        return 1;
+    }
+    else
+    {
+        return 0;
+    }
+}
+
+sub strip_quotes_and_normalize
+{
+    my $fqFileName = shift;
+
+    if ( length( $fqFileName ) > 0
+         && substr( $fqFileName, 0, 1 ) eq '"' )
+    {
+        $fqFileName = substr( $fqFileName, 1 );
+    }
+    if ( length( $fqFileName ) > 0
+         && substr( $fqFileName, -1 ) eq '"' )
+    {
+        $fqFileName = substr( $fqFileName, 0, -1 );
+    }
+
+    $fqFileName =~ s,\\,/,go;
+
+    return $fqFileName;
+}
+
 if ( $testsRun && $measureCodeCoverage )
 {
     my $coverageLog    = "$log_dir/covfile.out";
@@ -1212,14 +1284,10 @@ if ( $testsRun && $measureCodeCoverage )
             chomp;
             my @entry = split( /,/ );
             next if ( $#entry < 6 );
-            my $normalizedFile = $entry[0];
-            $normalizedFile =~ s,\\,/,g;
-            next if (   $normalizedFile =~ m/\Q$scriptData\E/o
-                     || ( defined( $assignmentIncludes ) &&
-                          $normalizedFile =~ m/^\Q$assignmentIncludes\E/o )
-                     || ( defined( $generalIncludes ) &&
-                          $normalizedFile =~ m/^\Q$generalIncludes\E/o )
-                    );
+            my $normalizedFile = strip_quotes_and_normalize( $entry[0] );
+
+            next if exclude_from_coverage( $normalizedFile );
+
             $topLevelGradedElements += $entry[2];
             if ( $coverageMetric == 2 )
             {
@@ -1253,26 +1321,10 @@ if ( $testsRun && $measureCodeCoverage )
                 chomp;
                 my @entry = split( /,/ );
                 next if ( $#entry < 6 );
-                my $fqFileName = $entry[0];
-                # $fqFileName =~ s/^(\")?([^\"]*)(\")?$/$2/o;
-                if ( length( $fqFileName ) > 0
-                     && substr( $fqFileName, 0, 1 ) eq '"' )
-                {
-                    $fqFileName = substr( $fqFileName, 1 );
-                }
-                if ( length( $fqFileName ) > 0
-                     && substr( $fqFileName, -1 ) eq '"' )
-                {
-                    $fqFileName = substr( $fqFileName, 0, -1 );
-                }
-                $fqFileName =~ s,\\,/,go;
-                next if (   $fqFileName =~ m/\Q$scriptData\E/o
-                         || ( defined( $assignmentIncludes ) &&
-                              $fqFileName =~ m/^\Q$assignmentIncludes\E/o )
-                         || ( defined( $generalIncludes ) &&
-                              $fqFileName =~ m/^\Q$generalIncludes\E/o )
-                        );
-                #$fqFileName =~ s,^\Q${working_dir}\E(/)*,,o;
+                my $fqFileName = strip_quotes_and_normalize( $entry[0] );
+
+                next if exclude_from_coverage( $fqFileName );
+
                 $fqFileName = sanitize_path( $fqFileName );
 
                 if ( $debug > 2 )
@@ -1348,14 +1400,10 @@ if ( $testsRun && $measureCodeCoverage )
                 chomp;
                 my @entry = split( /,/ );
                 next if ( $#entry < 5 );
-                $entry[0] =~ s,\\,/,go;
-                next if (   $entry[0] =~ m/\Q$scriptData\E/o
-                         || ( defined( $assignmentIncludes ) &&
-                              $entry[0] =~ m/^\Q$assignmentIncludes\E/o )
-                         || ( defined( $generalIncludes ) &&
-                              $entry[0] =~ m/^\Q$generalIncludes\E/o )
-                        );
-#                $entry[0] =~ s,^\Q${working_dir}\E(/)*,,o;
+                $entry[0] = strip_quotes_and_normalize( $entry[0] );
+
+                next if exclude_from_coverage( $entry[0] );
+
                 $entry[0] = sanitize_path( $entry[0] );
                 if ( $entry[3] eq "function" && $entry[4] eq "" )
                 {
@@ -1388,14 +1436,9 @@ if ( $testsRun && $measureCodeCoverage )
                 chomp;
                 if ( m/^(\S*):$/o )
                 {
-                    $thisFile = $1;
-                    $thisFile =~ s,\\,/,go;
-                    if (   $thisFile =~ m/\Q$scriptData\E/o
-                        || ( defined( $assignmentIncludes ) &&
-                             $thisFile =~ m/^\Q$assignmentIncludes\E/o )
-                        || ( defined( $generalIncludes ) &&
-                             $thisFile =~ m/^\Q$generalIncludes\E/o )
-                       )
+                    $thisFile = strip_quotes_and_normalize( $1 );
+
+                    if ( exclude_from_coverage( $thisFile ) )
                     {
                         $thisFile = undef;
                     }
@@ -1758,15 +1801,15 @@ if (@cloc_files)
 {
     my $cloc = new Web_CAT::CLOC;
     $cloc->execute(@cloc_files);
-    
+
     for (my $i = 1; $i <= $numCodeMarkups; $i++)
     {
         my $cloc_file = $cfg->getProperty(
             "codeMarkup${i}.sourceFileName", undef);
-    
+
         my $cloc_metrics = $cloc->fileMetrics($cloc_file);
         next unless defined $cloc_metrics;
-        
+
         $cfg->setProperty(
             "codeMarkup${i}.loc",
             $cloc_metrics->{blank} + $cloc_metrics->{comment} + $cloc_metrics->{code} );
