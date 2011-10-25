@@ -462,7 +462,10 @@ if ( $callAnt )
         my ( $exitcode, $timeout_status ) = Proc::Background::timeout_system(
                 $timeout - $postProcessingTime, $cmdline );
 
-        $ENV{'HOME'} = $old_home;
+        if (defined($old_home))
+        {
+            $ENV{'HOME'} = $old_home;
+        }
 
         if ( $timeout_status )
         {

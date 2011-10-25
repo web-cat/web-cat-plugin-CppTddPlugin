@@ -67,7 +67,7 @@
 
     <target name="win.properties" if="is.win">
         <property name="cxxtest.extra.libs"
-          value=",bfd,iberty,intl"/>
+          value=",bfd,iberty,intl,z"/>
         <property name="cxxtest.debug.flag"
           value="-g3"/>
         <property name="cxxtest.dereferee.platform"
